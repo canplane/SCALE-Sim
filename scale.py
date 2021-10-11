@@ -55,7 +55,7 @@ class scale:
 
         dt = datetime.datetime.now(datetime.timezone.utc)
         t_str = dt.astimezone().strftime('%Y%m%d_%H%M%S')
-        
+
         self.output_conf_dir = f'./outputs/{self.run_name}-{t_str}'
         os.system(f'mkdir {self.output_conf_dir}')
     #
