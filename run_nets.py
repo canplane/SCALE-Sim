@@ -1,7 +1,6 @@
 import trace_gen_wrapper as tg
 
 import os
-import subprocess
 
 
 def run_net(
@@ -10,6 +9,7 @@ def run_net(
             offset_list=[0, 10000000, 20000000],
             dataflow='os',
             topology_filepath='./topologies/yolo_v2.csv', net_name='yolo_v2',
+            output_net_dir=''
         ):
     ifmap_sram_sz = 1024 * ifmap_sram_sz_kb
     filter_sram_sz = 1024 * filter_sram_sz_kb
@@ -17,17 +17,11 @@ def run_net(
 
     topology_file = open(topology_filepath, 'r')
 
-    fname = net_name + '_avg_bw.csv' #net_name + '.csv'
-    bw = open(fname, 'w')
-
-    f2name = net_name + '_max_bw.csv'
-    maxbw = open(f2name, 'w')
-
-    f3name = net_name + '_cycles.csv'
-    cycl = open(f3name, 'w')
-
-    f4name = net_name + '_detail.csv'
-    detail = open(f4name, 'w')
+    os.system(f'mkdir {output_net_dir}')
+    fname = f'{output_net_dir}/avg_bw.csv'; bw = open(fname, 'w')
+    f2name = f'{output_net_dir}/max_bw.csv'; maxbw = open(f2name, 'w')
+    f3name = f'{output_net_dir}/cycles.csv'; cycl = open(f3name, 'w')
+    f4name = f'{output_net_dir}/detail.csv'; detail = open(f4name, 'w')
 
     bw.write('IFMAP SRAM Size,\tFilter SRAM Size,\tOFMAP SRAM Size,\tConv Layer Num,\tDRAM IFMAP Read BW,\tDRAM Filter Read BW,\tDRAM OFMAP Write BW,\tSRAM Read BW,\tSRAM OFMAP Write BW, \n')
     maxbw.write('IFMAP SRAM Size,\tFilter SRAM Size,\tOFMAP SRAM Size,\tConv Layer Num,\tMax DRAM IFMAP Read BW,\tMax DRAM Filter Read BW,\tMax DRAM OFMAP Write BW,\tMax SRAM Read BW,\tMax SRAM OFMAP Write BW,\n')
@@ -56,6 +50,9 @@ def run_net(
             continue
 
         layer_name = elems[0]
+        output_layer_dir = f'{output_net_dir}/{layer_name}'
+        os.system(f'mkdir {output_layer_dir}')
+
         print('')
         print(f'Commencing run for {layer_name}')
 
@@ -86,11 +83,11 @@ def run_net(
                         word_size_bytes=1,
                         ifmap_base=ifmap_base, filt_base=filter_base, ofmap_base=ofmap_base,
                         
-                        sram_read_trace_file=f'{net_name}_{layer_name}_sram_read.csv',
-                        sram_write_trace_file=f'{net_name}_{layer_name}_sram_write.csv',
-                        dram_ifmap_trace_file=f'{net_name}_{layer_name}_dram_ifmap_read.csv',
-                        dram_filter_trace_file=f'{net_name}_{layer_name}_dram_filter_read.csv',
-                        dram_ofmap_trace_file=f'{net_name}_{layer_name}_dram_ofmap_write.csv'
+                        sram_read_trace_file=f'{output_layer_dir}/sram_read.csv',
+                        sram_write_trace_file=f'{output_layer_dir}/sram_write.csv',
+                        dram_ifmap_trace_file=f'{output_layer_dir}/dram_ifmap_read.csv',
+                        dram_filter_trace_file=f'{output_layer_dir}/dram_filter_read.csv',
+                        dram_ofmap_trace_file=f'{output_layer_dir}/dram_ofmap_write.csv'
                     )
 
         bw_log += bw_str
@@ -101,11 +98,11 @@ def run_net(
 
         max_bw_log += \
                 tg.gen_max_bw_numbers(
-                        sram_read_trace_file=f'{net_name}_{layer_name}_sram_read.csv',
-                        sram_write_trace_file=f'{net_name}_{layer_name}_sram_write.csv',
-                        dram_ifmap_trace_file=f'{net_name}_{layer_name}_dram_ifmap_read.csv',
-                        dram_filter_trace_file=f'{net_name}_{layer_name}_dram_filter_read.csv',
-                        dram_ofmap_trace_file=f'{net_name}_{layer_name}_dram_ofmap_write.csv'
+                        sram_read_trace_file=f'{output_layer_dir}/sram_read.csv',
+                        sram_write_trace_file=f'{output_layer_dir}/sram_write.csv',
+                        dram_ifmap_trace_file=f'{output_layer_dir}/dram_ifmap_read.csv',
+                        dram_filter_trace_file=f'{output_layer_dir}/dram_filter_read.csv',
+                        dram_ofmap_trace_file=f'{output_layer_dir}/dram_ofmap_write.csv'
                     )
 
         maxbw.write(max_bw_log + '\n')
