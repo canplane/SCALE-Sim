@@ -3,16 +3,16 @@ from tqdm import tqdm
 
 
 def sram_traffic(
-        dimension_rows=4,
-        dimension_cols=4,
-        ifmap_h=7, ifmap_w=7,
-        filt_h=3, filt_w=3,
-        num_channels=3,
-        strides=1, num_filt=8,
-        ofmap_base=2000000, filt_base=1000000, ifmap_base=0,
-        sram_read_trace_file="sram_read.csv",
-        sram_write_trace_file="sram_write.csv"
-    ):
+            dimension_rows=4,
+            dimension_cols=4,
+            ifmap_h=7, ifmap_w=7,
+            filt_h=3, filt_w=3,
+            num_channels=3,
+            strides=1, num_filt=8,
+            ofmap_base=2000000, filt_base=1000000, ifmap_base=0,
+            sram_read_trace_file="sram_read.csv",
+            sram_write_trace_file="sram_write.csv"
+        ):
 
     # Dimensions of output feature map channel
     E_h = math.floor((ifmap_h - filt_h + strides) / strides)

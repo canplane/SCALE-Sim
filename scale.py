@@ -1,90 +1,54 @@
+import run_nets as r
+
 import os
 import time
 import configparser as cp
-import run_nets as r
-from absl import flags
-from absl import app
+from absl import flags, app
 
 FLAGS = flags.FLAGS
-#name of flag | default | explanation
-flags.DEFINE_string("arch_config","./configs/scale.cfg","file where we are getting our architechture from")
-flags.DEFINE_string("network","./topologies/conv_nets/alexnet.csv","topology that we are reading")
+# name of flag | default | explanation
+flags.DEFINE_string('config', './configs/scale.cfg', 'file where we are getting our architechture from')
+flags.DEFINE_string('network', './topologies/conv_nets/alexnet.csv', 'topology that we are reading')
 
 
 class scale:
-    def __init__(self, sweep = False, save = False):
+    def __init__(self, sweep=False, save=False):
         self.sweep = sweep
         self.save_space = save
+    #
 
     def parse_config(self):
-        general = 'general'
-        arch_sec = 'architecture_presets'
-        net_sec  = 'network_presets'
-       # config_filename = "./scale.cfg"
-        config_filename = FLAGS.arch_config
-        print("Using Architechture from ",config_filename)
+        config_filepath = FLAGS.config
+        print(f'Using Architechture from {config_filepath}')
 
         config = cp.ConfigParser()
-        config.read(config_filename)
+        config.read(config_filepath)
 
-        ## Read the run name
-        self.run_name = config.get(general, 'run_name')
+        ## Read the run_name
+        section = 'general'
+
+        self.run_name = config.get(section, 'run_name')
 
         ## Read the architecture_presets
-        ## Array height min, max
-        ar_h = config.get(arch_sec, 'ArrayHeight').split(',')
-        self.ar_h_min = ar_h[0].strip()
+        section = 'architecture_presets'
 
-        if len(ar_h) > 1:
-            self.ar_h_max = ar_h[1].strip()
-        #print("Min: " + ar_h_min + " Max: " + ar_h_max)
+        self.array_h = int(config.get(section, 'ArrayHeight'))
+        self.array_w = int(config.get(section, 'ArrayWidth'))
 
-        ## Array width min, max
-        ar_w = config.get(arch_sec, 'ArrayWidth').split(',')
-        self.ar_w_min = ar_w[0].strip()
+        self.ifmap_sram_sz_kb = int(config.get(section, 'IfmapSramSzkB'))
+        self.filter_sram_sz_kb = int(config.get(section, 'FilterSramSzkB'))
+        self.ofmap_sram_sz_kb = int(config.get(section, 'OfmapSramSzkB'))
+        
+        self.ifmap_offset = int(config.get(section, 'IfmapOffset'))
+        self.filter_offset = int(config.get(section, 'FilterOffset'))
+        self.ofmap_offset = int(config.get(section, 'OfmapOffset'))
 
-        if len(ar_w) > 1:
-            self.ar_w_max = ar_w[1].strip()
-
-        ## IFMAP SRAM buffer min, max
-        ifmap_sram = config.get(arch_sec, 'IfmapSramSz').split(',')
-        self.isram_min = ifmap_sram[0].strip()
-
-        if len(ifmap_sram) > 1:
-            self.isram_max = ifmap_sram[1].strip()
-
-
-        ## FILTER SRAM buffer min, max
-        filter_sram = config.get(arch_sec, 'FilterSramSz').split(',')
-        self.fsram_min = filter_sram[0].strip()
-
-        if len(filter_sram) > 1:
-            self.fsram_max = filter_sram[1].strip()
-
-
-        ## OFMAP SRAM buffer min, max
-        ofmap_sram = config.get(arch_sec, 'OfmapSramSz').split(',')
-        self.osram_min = ofmap_sram[0].strip()
-
-        if len(ofmap_sram) > 1:
-            self.osram_max = ofmap_sram[1].strip()
-
-        self.dataflow= config.get(arch_sec, 'Dataflow')
-
-        ifmap_offset = config.get(arch_sec, 'IfmapOffset')
-        self.ifmap_offset = int(ifmap_offset.strip())
-
-        filter_offset = config.get(arch_sec, 'FilterOffset')
-        self.filter_offset = int(filter_offset.strip())
-
-        ofmap_offset = config.get(arch_sec, 'OfmapOffset')
-        self.ofmap_offset = int(ofmap_offset.strip())
+        self.dataflow = config.get(section, 'Dataflow')
 
         ## Read network_presets
-        ## For now that is just the topology csv filename
-        #topology_file = config.get(net_sec, 'TopologyCsvLoc')
-        #self.topology_file = topology_file.split('"')[1]     #Config reads the quotes as wells
-        self.topology_file= FLAGS.network
+        self.topology_filepath = FLAGS.network
+        self.net_name = self.topology_filepath.split('/')[-1].split('.')[0]
+    #
 
     def run_scale(self):
         self.parse_config()
@@ -93,114 +57,93 @@ class scale:
             self.run_once()
         else:
             self.run_sweep()
-
+    #
 
     def run_once(self):
-
-        df_string = "Output Stationary"
+        df_string = 'Output Stationary'  # os
         if self.dataflow == 'ws':
-            df_string = "Weight Stationary"
+            df_string = 'Weight Stationary'
         elif self.dataflow == 'is':
-            df_string = "Input Stationary"
+            df_string = 'Input Stationary'
 
-        print("====================================================")
-        print("******************* SCALE SIM **********************")
-        print("====================================================")
-        print("Array Size: \t" + str(self.ar_h_min) + "x" + str(self.ar_w_min))
-        print("SRAM IFMAP: \t" + str(self.isram_min))
-        print("SRAM Filter: \t" + str(self.fsram_min))
-        print("SRAM OFMAP: \t" + str(self.osram_min))
-        print("CSV file path: \t" + self.topology_file)
-        print("Dataflow: \t" + df_string)
-        print("====================================================")
+        print('====================================================')
+        print('******************* SCALE SIM **********************')
+        print('====================================================')
+        print(f'Array Size: \t{self.array_h}x{self.array_w}')
+        print(f'SRAM IFMAP: \t{self.ifmap_sram_sz_kb}')
+        print(f'SRAM Filter: \t{self.filter_sram_sz_kb}')
+        print(f'SRAM OFMAP: \t{self.ofmap_sram_sz_kb}')
+        print(f'CSV filepath: \t{self.topology_filepath}')
+        #print(f'Net name: \t{self.net_name}')
+        print(f'Dataflow: \t{df_string}')
+        print('====================================================')
 
-        net_name = self.topology_file.split('/')[-1].split('.')[0]
-        #print("Net name = " + net_name)
-        offset_list = [self.ifmap_offset, self.filter_offset, self.ofmap_offset]
-
-        r.run_net(  ifmap_sram_size  = int(self.isram_min),
-                    filter_sram_size = int(self.fsram_min),
-                    ofmap_sram_size  = int(self.osram_min),
-                    array_h = int(self.ar_h_min),
-                    array_w = int(self.ar_w_min),
-                    net_name = net_name,
-                    data_flow = self.dataflow,
-                    topology_file = self.topology_file,
-                    offset_list = offset_list
-                )
+        r.run_net(
+                array_h=self.array_h, array_w=self.array_w,
+                ifmap_sram_sz_kb=self.ifmap_sram_sz_kb, filter_sram_sz_kb=self.filter_sram_sz_kb, ofmap_sram_sz_kb=self.ofmap_sram_sz_kb,
+                offset_list=[self.ifmap_offset, self.filter_offset, self.ofmap_offset],
+                dataflow=self.dataflow,
+                topology_filepath=self.topology_filepath, net_name=self.net_name,
+            )
         self.cleanup()
-        print("************ SCALE SIM Run Complete ****************")
-
+        print('************ SCALE SIM Run Complete ****************')
+    #
 
     def cleanup(self):
-        if not os.path.exists("./outputs/"):
-            os.system("mkdir ./outputs")
+        if not os.path.exists('./outputs/'):
+            os.system('mkdir ./outputs')
 
-        net_name = self.topology_file.split('/')[-1].split('.')[0]
-
-        path = "./output/scale_out"
-        if self.run_name == "":
-            path = "./outputs/" + net_name +"_"+ self.dataflow
+        if self.run_name == '':
+            path = f'./outputs/{self.net_name}_{self.dataflow}'
         else:
-            path = "./outputs/" + self.run_name
+            path = f'./outputs/{self.run_name}'
 
         if not os.path.exists(path):
-            os.system("mkdir " + path)
+            os.system(f'mkdir {path}')
         else:
             t = time.time()
-            new_path= path + "_" + str(t)
-            os.system("mv " + path + " " + new_path)
-            os.system("mkdir " + path)
+            new_path = f'{path}_{t}'
+            os.system(f'mv {path} {new_path}')
+            os.system(f'mkdir {path}')
 
-
-        cmd = "mv *.csv " + path
-        os.system(cmd)
-
-        cmd = "mkdir " + path +"/layer_wise"
-        os.system(cmd)
-
-        cmd = "mv " + path +"/*sram* " + path +"/layer_wise"
-        os.system(cmd)
-
-        cmd = "mv " + path +"/*dram* " + path +"/layer_wise"
-        os.system(cmd)
+        os.system(f'mv *.csv {path}')
+        os.system(f'mkdir {path}/layer_wise')
+        os.system(f'mv {path}/*sram* {path}/layer_wise')
+        os.system(f'mv {path}/*dram* {path}/layer_wise')
 
         if self.save_space == True:
-            cmd = "rm -rf " + path +"/layer_wise"
-            os.system(cmd)
-
+            os.system(f'rm -rf {path}/layer_wise')
+    #
 
     def run_sweep(self):
-
-        all_data_flow_list = ['os', 'ws', 'is']
+        all_dataflow_list = ['os', 'ws', 'is']
         all_arr_dim_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
         all_sram_sz_list = [256, 512, 1024]
 
-        data_flow_list = all_data_flow_list[1:]
+        ## User defined list
+        dataflow_list = all_dataflow_list[1:]
         arr_h_list = all_arr_dim_list[3:8]
         arr_w_list = all_arr_dim_list[3:8]
         #arr_w_list = list(reversed(arr_h_list))
+        #
 
-        net_name = self.topology_file.split('/')[-1].split('.')[0]
-        for df in data_flow_list:
+        for df in dataflow_list:
             self.dataflow = df
 
             for i in range(len(arr_h_list)):
-                self.ar_h_min = arr_h_list[i]
-                self.ar_w_min = arr_w_list[i]
+                self.array_h = arr_h_list[i]
+                self.array_w = arr_w_list[i]
 
-                self.run_name = net_name + "_" + df + "_" + str(self.ar_h_min) + "x" + str(self.ar_w_min)
+                self.run_name = f'{self.net_name}_{df}_{self.array_h}x{self.array_w}'
 
                 self.run_once()
+    #
+#
 
 def main(argv):
-    s = scale(save = False, sweep = False)
+    s = scale(save=False, sweep=False)
     s.run_scale()
+#
 
 if __name__ == '__main__':
   app.run(main)
-'''
-if __name__ == "__main__":
-    s = scale(save = False, sweep = False)
-    s.run_scale()
-'''
