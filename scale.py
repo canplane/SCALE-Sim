@@ -7,14 +7,14 @@ import argparse
 
 
 class scale:
-    def __init__(self, config='', topology=''):
-        if config == '':
-            config = './configs/google.cfg'
-        self.config_path = config
+    def __init__(self, c='', n=''):
+        if c == '':
+            c = './configs/google.cfg'
+        self.config_path = c
 
-        if topology == '':
-            topology = './topologies/conv_nets/alexnet_part.csv'
-        self.topology_path = topology
+        if n == '':
+            n = './networks/conv_nets/alexnet_part.csv'
+        self.net_path = n
     #
 
     def run_scale(self):
@@ -23,31 +23,34 @@ class scale:
     #
 
     def parse_config(self):
-        print(f'Using Architechture from {self.config_path}')
+        print(f"Using Architechture from {self.config_path}")
 
-        config = cp.ConfigParser()
-        config.read(self.config_path)
+        CONFIG = cp.ConfigParser()
+        CONFIG.read(self.config_path)
 
         ## Read the run_name
-        section = 'general'
+        SECTION = 'general'
 
-        self.run_name = config.get(section, 'run_name')
+        self.run_name = CONFIG.get(SECTION, 'run_name')
 
         ## Read the architecture_presets
-        section = 'architecture_presets'
+        SECTION = 'architecture_presets'
 
-        self.array_h = int(config.get(section, 'ArrayHeight'))
-        self.array_w = int(config.get(section, 'ArrayWidth'))
-
-        self.ifmap_sram_sz_kb = int(config.get(section, 'IfmapSramSzkB'))
-        self.filter_sram_sz_kb = int(config.get(section, 'FilterSramSzkB'))
-        self.ofmap_sram_sz_kb = int(config.get(section, 'OfmapSramSzkB'))
-        
-        self.ifmap_offset = int(config.get(section, 'IfmapOffset'))
-        self.filter_offset = int(config.get(section, 'FilterOffset'))
-        self.ofmap_offset = int(config.get(section, 'OfmapOffset'))
-
-        self.dataflow = config.get(section, 'Dataflow')
+        self.array = {
+            'h': int(CONFIG.get(SECTION, 'ArrayHeight')),
+            'w': int(CONFIG.get(SECTION, 'ArrayWidth'))
+        }
+        self.sram_sz = {
+            'ifmap': 1024 * int(CONFIG.get(SECTION, 'IfmapSramSzkB')),
+            'filt': 1024 * int(CONFIG.get(SECTION, 'FilterSramSzkB')),
+            'ofmap': 1024 * int(CONFIG.get(SECTION, 'OfmapSramSzkB'))
+        }
+        self.base_addr = {
+            'ifmap': int(CONFIG.get(SECTION, 'IfmapOffset')),
+            'filt': int(CONFIG.get(SECTION, 'FilterOffset')),
+            'ofmap': int(CONFIG.get(SECTION, 'OfmapOffset'))
+        }
+        self.dataflow = CONFIG.get(SECTION, 'Dataflow')
 
         ## Set output path
         if not os.path.exists('./outputs/'):
@@ -56,14 +59,14 @@ class scale:
         dt = datetime.datetime.now(datetime.timezone.utc)
         t_str = dt.astimezone().strftime('%Y%m%d_%H%M%S')
 
-        self.output_conf_dir = f'./outputs/{self.run_name}-{t_str}'
-        os.system(f'mkdir {self.output_conf_dir}')
+        self.output_conf_dir = f"./outputs/{self.run_name}-{t_str}"
+        os.system(f"mkdir {self.output_conf_dir}")
     #
 
     def run_once(self):
-        print('====================================================')
-        print('******************* SCALE SIM **********************')
-        print('====================================================')
+        print("====================================================")
+        print("******************* SCALE SIM **********************")
+        print("====================================================")
 
         ## Print network_presets
         df_string = 'Output Stationary'  # os
@@ -72,30 +75,31 @@ class scale:
         elif self.dataflow == 'is':
             df_string = 'Input Stationary'
 
-        print(f'Array Size: \t{self.array_h}x{self.array_w}')
-        print(f'SRAM IFMAP: \t{self.ifmap_sram_sz_kb}')
-        print(f'SRAM Filter: \t{self.filter_sram_sz_kb}')
-        print(f'SRAM OFMAP: \t{self.ofmap_sram_sz_kb}')
-        print(f'Dataflow: \t{df_string}')
-        print('====================================================')
+        print(f"Array Size: \t{self.array['h']}x{self.array['w']}")
+        print(f"SRAM IFMAP: \t{self.sram_sz['ifmap']}")
+        print(f"SRAM Filter: \t{self.sram_sz['filt']}")
+        print(f"SRAM OFMAP: \t{self.sram_sz['ofmap']}")
+        print(f"Dataflow: \t{df_string}")
+        print("====================================================")
 
         ## Print network_presets
-        net_name = self.topology_path.split('/')[-1].split('.')[0]
-        output_net_dir = f'{self.output_conf_dir}/{net_name}'
+        net_name = self.net_path.split('/')[-1].split('.')[0]
+        output_net_dir = f"{self.output_conf_dir}/{net_name}"
 
-        print(f'CSV filepath: \t{self.topology_path}')
-        print(f'Net name: \t{net_name}')
-        print('====================================================')
+        print(f"CSV filepath: \t{self.net_path}")
+        print(f"Net name: \t{net_name}")
+        print("====================================================")
 
         r.run_net(
-                array_h=self.array_h, array_w=self.array_w,
-                ifmap_sram_sz_kb=self.ifmap_sram_sz_kb, filter_sram_sz_kb=self.filter_sram_sz_kb, ofmap_sram_sz_kb=self.ofmap_sram_sz_kb,
-                offset_list=[self.ifmap_offset, self.filter_offset, self.ofmap_offset],
+                array=self.array,
+                sram_sz=self.sram_sz,
+                base_addr=self.base_addr,
                 dataflow=self.dataflow,
-                topology_filepath=self.topology_path, net_name=net_name,
+                
+                net_path=self.net_path,
                 output_net_dir=output_net_dir
             )
-        print('************ SCALE SIM Run Complete ****************')
+        print("************ SCALE SIM Run Complete ****************")
     #
 #
 
@@ -105,13 +109,12 @@ if __name__ == '__main__':
                 default='',
                 help='path to the config file'
             )
-    parser.add_argument('-t', metavar='filename', type=str,
+    parser.add_argument('-n', metavar='filename', type=str,
                 default='',
-                help='path to the topology file'
+                help='path to the network file'
             )
     
     args = parser.parse_args()
-    config, topology = args.c, args.t
-    s = scale(config=config, topology=topology)
+    s = scale(c=args.c, n=args.n)
     s.run_scale()
 #

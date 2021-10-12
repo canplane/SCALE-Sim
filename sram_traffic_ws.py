@@ -3,58 +3,62 @@ from tqdm import tqdm
 
 
 def sram_traffic(
-            dimension_rows=4,
-            dimension_cols=4,
-            ifmap_h=7, ifmap_w=7,
-            filt_h=3, filt_w=3,
-            num_channels=3,
-            strides=1, num_filt=8,
-            ofmap_base=2000000, filt_base=1000000, ifmap_base=0,
-            sram_read_trace_file='sram_read.csv',
-            sram_write_trace_file='sram_write.csv'
+            array={ 'h': 4, 'w': 4 },  #dimension_rows=4, dimension_cols=4,
+
+            ifmap={ 'h': 7, 'w': 7 }, filt={ 'h': 3, 'w': 3 }, ch=3,  #ifmap_h=7, ifmap_w=7, filt_h=3, filt_w=3, num_channels=3,
+            num_filt=8,
+            stride=1,
+
+            base_addr={ 'ifmap': 0, 'filt': 1000000, 'ofmap': 2000000 },
+            sram_trace_path={
+                'read': "./sram_read.csv",
+                'write': "./sram_write.csv"
+            }
         ):
 
     # Dimensions of output feature map channel
-    E_h = math.floor((ifmap_h - filt_h + strides) / strides)
-    E_w = math.floor((ifmap_w - filt_w + strides) / strides)
+    E_h = math.floor((ifmap['h'] - filt['h'] + stride) / stride)
+    E_w = math.floor((ifmap['w'] - filt['w'] + stride) / stride)
     
-    # Number of pixels in one convolution window
-    px_per_conv_window = filt_h * filt_w * num_channels
+    # Number of pixels in one convolution window (한 필터 윈도우에 들어가는 픽셀 수?)
+    px_per_conv_window = filt['h'] * filt['w'] * ch
     r2c = px_per_conv_window
 
     # Total number of ofmap px across all channels
     num_ofmap_px = E_h * E_w * num_filt
     e2  = E_h * E_w
     e2m = num_ofmap_px
-    
-    # Variables to calculate folds in runtime
-    num_h_fold = 1
-    num_v_fold = 1 
-    max_parallel_window = 1
 
     # Variables for utilization calculation
     util = 0
     compute_cycles = 0
 
-    if dimension_rows < px_per_conv_window:
-        num_h_fold = math.ceil(px_per_conv_window/dimension_rows)
+    # Variables to calculate folds in runtime
+    # num_h_fold : horizontal선으로 접기 : 하나의 컨볼루션 필터 커널의 칸 수 * 채널 수와 관련
+    # num_v_fold : vertical선으로 접기: 필터 개수와 관련
+    if array['h'] < px_per_conv_window:
+        num_h_fold = math.ceil(px_per_conv_window / array['h'])
+        max_parallel_window = 1
     else:
-        max_parallel_window = math.floor(dimension_rows/ px_per_conv_window)
+        num_h_fold = 1
+        max_parallel_window = math.floor(array['h'] / px_per_conv_window)
 
     reqd_cols = num_filt                    # Total number of cols to be mapped
-    max_cols_per_v_fold = max_parallel_window * dimension_cols
-    num_v_folds = math.ceil(reqd_cols / max_cols_per_v_fold)
+    max_cols_per_v_fold = max_parallel_window * array['w']
+    num_v_fold = math.ceil(reqd_cols / max_cols_per_v_fold)
+
+    ############################# 여기까지 봄
     
     remaining_cols = reqd_cols
     cycles = 0
     prev_cycl = 0
 
-    #print("Vertical folds = " +str(num_v_folds))
+    #print("Vertical folds = " +str(num_v_fold))
    
     # These are the starting addresses of filter weights in the memory 
     all_col_addr_list = []
     for c in range(num_filt):
-        addr = (c) * r2c + filt_base 
+        addr = (c) * r2c + base_addr['filt']
         all_col_addr_list.append(addr)
 
     # These are the starting addresses of ifmap windows in the memory
@@ -64,7 +68,7 @@ def sram_traffic(
         addr = (px / E_w) * strides * hc + (px%E_w) * strides
         all_ifmap_base_addr.append(addr)
 
-    for v in tqdm(range(int(num_v_folds))):
+    for v in tqdm(range(int(num_v_fold))):
         #print("V fold id: " + str(v))
             
         # Take a slice of the starting addresses that are relevant for this v_fold 

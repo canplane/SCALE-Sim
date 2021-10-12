@@ -1,4 +1,3 @@
-import os.path
 import math
 from tqdm import tqdm
 

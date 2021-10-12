@@ -3,80 +3,92 @@ import sram_traffic_os as sram_os
 import sram_traffic_ws as sram_ws
 import sram_traffic_is as sram_is
 
-import math
-
 
 def gen_all_traces(
-        array_h=4, array_w=4,
-        ifmap_h=7, ifmap_w=7,
-        filt_h=3, filt_w=3,
-        num_channels = 3,
-        strides=1, num_filt=8,
+            array={ 'h': 4, 'w': 4 },
+            sram_sz={ 'ifmap': 64, 'filt': 64, 'ofmap': 64 },
+            dataflow='os',
 
-        dataflow='os',
+            word_sz_bytes=1,
 
-        word_size_bytes=1,
-        ifmap_sram_size=64, filter_sram_size=64, ofmap_sram_size=64,
+            ifmap={ 'h': 7, 'w': 7 }, filt={ 'h': 3, 'w': 3 }, ch=3,
+            num_filt=8,
+            stride=1,
 
-        ifmap_base=0, filt_base=1000000, ofmap_base=2000000,
-        sram_read_trace_file='sram_read.csv',
-        sram_write_trace_file='sram_write.csv',
+            base_addr={ 'ifmap': 0, 'filt': 1000000, 'ofmap': 2000000 },
+            trace_path={
+                'sram': {
+                    'read': "./sram_read.csv",
+                    'write': "./sram_write.csv",
+                },
+                'dram': {
+                    'ifmap': "./dram_ifmap_read.csv",
+                    'filt': "./dram_filt_read.csv",
+                    'ofmap': "./dram_ofmap_write.csv"
+                }
+            }
+        ):
 
-        dram_filter_trace_file='dram_filter_read.csv',
-        dram_ifmap_trace_file='dram_ifmap_read.csv',
-        dram_ofmap_trace_file='dram_ofmap_write.csv'
-    ):
-
-    sram_cycles = 0
-    util = 0
+    sram_cycles, util = 0, 0
 
     print('Generating traces and bw numbers')
     sram_cycles, util = \
             { 'os': sram_os, 'ws': sram_ws, 'is': sram_is }.get(dataflow, 'os').sram_traffic(
-                    dimension_rows=array_h, dimension_cols=array_w,
-                    ifmap_h=ifmap_h, ifmap_w=ifmap_w,
-                    filt_h=filt_h, filt_w=filt_w,
-                    num_channels=num_channels,
-                    strides=strides, num_filt=num_filt,
-                    ifmap_base=ifmap_base, filt_base=filt_base, ofmap_base=ofmap_base,
-                    sram_read_trace_file=sram_read_trace_file, sram_write_trace_file=sram_write_trace_file
+                    array=array, #dimension_rows=array_h, dimension_cols=array_w,
+
+                    ifmap=ifmap, filt=filt, ch=ch,
+                    num_filt=num_filt,
+                    stride=stride,
+
+                    base_addr=base_addr,
+                    sram_trace_path=trace_path['sram']
                 )
 
     #print('Generating DRAM traffic')
     dram.dram_trace_read_v2(
-        sram_sz=ifmap_sram_size,
-        word_sz_bytes=word_size_bytes,
-        min_addr=ifmap_base, max_addr=filt_base,
-        sram_trace_file=sram_read_trace_file,
-        dram_trace_file=dram_ifmap_trace_file,
+        sram_sz=sram_sz['ifmap'],
+        word_sz_bytes=word_sz_bytes,
+        min_addr=base_addr['ifmap'], max_addr=base_addr['filt'],
+        sram_trace_file=trace_path['sram']['read'],
+        dram_trace_file=trace_path['dram']['ifmap']
     )
     dram.dram_trace_read_v2(
-        sram_sz=filter_sram_size,
-        word_sz_bytes=word_size_bytes,
-        min_addr=filt_base, max_addr=ofmap_base,
-        sram_trace_file= sram_read_trace_file,
-        dram_trace_file= dram_filter_trace_file,
+        sram_sz=sram_sz['filt'],
+        word_sz_bytes=word_sz_bytes,
+        min_addr=base_addr['filt'], max_addr=base_addr['ofmap'],
+        sram_trace_file=trace_path['sram']['read'],
+        dram_trace_file=trace_path['dram']['filt']
     )
     dram.dram_trace_write(
-        ofmap_sram_size= ofmap_sram_size,
-        data_width_bytes= word_size_bytes,
-        sram_write_trace_file= sram_write_trace_file,
-        dram_write_trace_file= dram_ofmap_trace_file
+        ofmap_sram_size=sram_sz['ofmap'],
+        data_width_bytes=word_sz_bytes,
+        sram_write_trace_file=trace_path['sram']['write'],
+        dram_write_trace_file=trace_path['dram']['ofmap']
     )
 
-    print(f'Average utilization : \t{util} %')
     print(f'Cycles for compute  : \t{sram_cycles} cycles')
-    bw_numbers, detailed_log = \
-            gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_trace_file, sram_write_trace_file, sram_read_trace_file)  #array_h, array_w)
+    print(f'Average utilization : \t{util} %')
+    bw_numbers, detail_log = gen_bw_numbers(trace_path)  #array_h, array_w)
 
-    return bw_numbers, detailed_log, util, sram_cycles
+    return bw_numbers, detail_log, sram_cycles, util
 #
 
-def gen_max_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_trace_file, sram_write_trace_file, sram_read_trace_file):
-
+def gen_max_bw_numbers(
+            trace_path={
+                'sram': {
+                    'read': "./sram_read.csv",
+                    'write': "./sram_write.csv",
+                },
+                'dram': {
+                    'ifmap': "./dram_ifmap_read.csv",
+                    'filt': "./dram_filt_read.csv",
+                    'ofmap': "./dram_ofmap_write.csv"
+                }
+            }
+        ):
     ## dram_ifmap_trace_file
     max_dram_activation_bw, max_dram_act_clk = 0, ''
-    with open(dram_ifmap_trace_file, 'r') as f:
+    with open(trace_path['dram']['ifmap'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2
@@ -86,7 +98,7 @@ def gen_max_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap
     
     ## dram_filter_trace_file
     max_dram_filter_bw, max_dram_filt_clk = 0, ''
-    with open(dram_filter_trace_file, 'r') as f:
+    with open(trace_path['dram']['filter'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2
@@ -96,7 +108,7 @@ def gen_max_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap
 
     ## dram_ofmap_trace_file
     max_dram_ofmap_bw, max_dram_ofmap_clk = 0, ''
-    with open(dram_ofmap_trace_file, 'r') as f:
+    with open(trace_path['dram']['ofmap'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2
@@ -106,7 +118,7 @@ def gen_max_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap
     
     ## sram_write_trace_file
     max_sram_ofmap_bw = 0
-    with open(sram_write_trace_file, 'r') as f:
+    with open(trace_path['sram']['write'], 'r') as f:
         for row in f:
             num_bytes = len(row.split(',')) - 2
 
@@ -115,7 +127,7 @@ def gen_max_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap
 
     ## sram_read_trace_file
     max_sram_read_bw = 0
-    with open(sram_read_trace_file, 'r') as f:
+    with open(trace_path['sram']['read'], 'r') as f:
         for row in f:
             num_bytes = len(row.split(',')) - 2
 
@@ -131,14 +143,26 @@ def gen_max_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap
     return log
 #
 
-def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_trace_file, sram_write_trace_file, sram_read_trace_file):  #array_h, array_w): # These are needed for utilization calculation
-    
+def gen_bw_numbers(
+            trace_path={
+                'sram': {
+                    'read': "./sram_read.csv",
+                    'write': "./sram_write.csv",
+                },
+                'dram': {
+                    'ifmap': "./dram_ifmap_read.csv",
+                    'filt': "./dram_filt_read.csv",
+                    'ofmap': "./dram_ofmap_write.csv"
+                }
+            }
+            #array_h, array_w): # These are needed for utilization calculation
+        ):
     min_clk, max_clk = 100000, -1
-    detailed_log = ''
+    detail_log = ''
 
     ## dram_ifmap_trace_file
     num_dram_activation_bytes = 0
-    with open(dram_ifmap_trace_file, 'r') as f:
+    with open(trace_path['dram']['ifmap'], 'r') as f:
         first = True
         for row in f:
             num_dram_activation_bytes += len(row.split(',')) - 2
@@ -153,11 +177,11 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
                 min_clk = clk
 
         stop_clk = clk
-        detailed_log += f'{start_clk},\t{stop_clk},\t{num_dram_activation_bytes},\t'
+        detail_log += f'{start_clk},\t{stop_clk},\t{num_dram_activation_bytes},\t'
 
     ## dram_filter_trace_file
     num_dram_filter_bytes = 0
-    with open(dram_filter_trace_file, 'r') as f:
+    with open(trace_path['dram']['filt'], 'r') as f:
         first = True
         for row in f:
             num_dram_filter_bytes += len(row.split(',')) - 2
@@ -172,11 +196,11 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
                 min_clk = clk
 
         stop_clk = clk
-        detailed_log += f'{start_clk},\t{stop_clk},\t{num_dram_filter_bytes},\t'
+        detail_log += f'{start_clk},\t{stop_clk},\t{num_dram_filter_bytes},\t'
     
     ## dram_ofmap_trace_file
     num_dram_ofmap_bytes = 0
-    with open(dram_ofmap_trace_file, 'r') as f:
+    with open(trace_path['dram']['ofmap'], 'r') as f:
         first = True
         for row in f:
             num_dram_ofmap_bytes += len(row.split(',')) - 2
@@ -188,14 +212,14 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
                 first, start_clk = False, clk
 
         stop_clk = clk
-        detailed_log += f'{start_clk},\t{stop_clk},\t{num_dram_ofmap_bytes},\t'
+        detail_log += f'{start_clk},\t{stop_clk},\t{num_dram_ofmap_bytes},\t'
     
     if clk > max_clk:
         max_clk = clk
 
     ## sram_write_trace_file
     num_sram_ofmap_bytes = 0
-    with open(sram_write_trace_file, 'r') as f:
+    with open(trace_path['sram']['write'], 'r') as f:
         first = True
         for row in f:
             num_sram_ofmap_bytes += len(row.split(',')) - 2
@@ -206,7 +230,7 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
                 first, start_clk = False, clk
 
         stop_clk = clk
-        detailed_log += f'{start_clk},\t{stop_clk},\t{num_sram_ofmap_bytes},\t'
+        detail_log += f'{start_clk},\t{stop_clk},\t{num_sram_ofmap_bytes},\t'
     
     if clk > max_clk:
         max_clk = clk
@@ -214,7 +238,7 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
     ## sram_read_trace_file
     num_sram_read_bytes = 0
     #total_util = 0
-    with open(sram_read_trace_file, 'r') as f:
+    with open(trace_path['sram']['read'], 'r') as f:
         first = True
         for row in f:
             #num_sram_read_bytes += len(row.split(',')) - 2
@@ -231,7 +255,7 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
             #print(f'Total Util {total_util}, util {util}')
 
         stop_clk = clk
-        detailed_log += f'{start_clk},\t{stop_clk},\t{num_sram_read_bytes},\t'
+        detail_log += f'{start_clk},\t{stop_clk},\t{num_sram_read_bytes},\t'
     
     #sram_clk = clk
     if clk > max_clk:
@@ -254,12 +278,12 @@ def gen_bw_numbers(dram_ifmap_trace_file, dram_filter_trace_file, dram_ofmap_tra
     #print(f'Average utilization : \t{avg_util} %')
     #print('SRAM OFMAP Write BW, Min clk, Max clk')
     
-    log = f'{dram_activation_bw},\t{dram_filter_bw},\t{dram_ofmap_bw},\t{sram_read_bw}\t{sram_ofmap_bw},'
+    log = f'{dram_activation_bw},\t{dram_filter_bw},\t{dram_ofmap_bw},\t{sram_read_bw},\t{sram_ofmap_bw},'
     # Anand: Enable the following line for debug
     #log += f'{min_clk},\t{max_clk},'
     #print(log)
     #return log, avg_util
-    return log, detailed_log
+    return log, detail_log
 #
 
 def parse_sram_read_data(elems):  #array_h, array_w):
@@ -285,61 +309,3 @@ def parse_sram_read_data(elems):  #array_h, array_w):
     #return util, data
     return data
 #
-
-'''def test():
-    test_fc1_24x24 = [27, 37, 512, 27, 37, 512, 1, 24, 1]
-    test_yolo_tiny_conv1_24x24 = [418, 418, 3, 3, 3, 16, 1, 24, 1]
-    test_mdnet_conv1_24x24 = [107, 107, 3, 7, 7, 96, 2, 24, 1]
-
-    #param = test_fc1_24x24
-    #param = test_yolo_tiny_conv1_24x24
-    param = test_mdnet_conv1_24x24
-
-    # The parameters for 1st layer of yolo_tiny
-    ifmap_h = param[0]
-    ifmap_w = param[1]
-    num_channels = param[2]
-
-    filt_h = param[3]
-    filt_w = param[4]
-    num_filters = param[5] #16
-
-    strides = param[6]
-
-    # Model parameters
-    dimensions = param[7] #32 #16
-    word_sz = param[8]
-
-    ifmap_sram_size = 1 * 1024
-    filter_sram_size = 1 * 1024
-    ofmap_sram_size = 1 * 1024
-
-    ifmap_base = 0
-    filter_base = 1000000
-    ofmap_base = 2000000
-
-    # Trace files
-    sram_read_trace = 'test_sram_read.csv'
-    sram_write_trace = 'test_sram_write.csv'
-
-    dram_filter_read_trace = 'test_dram_filt_read.csv'
-    dram_ifmap_read_trace = 'test_dram_ifamp_read.csv'
-    dram_write_trace = 'test_dram_write.csv'
-
-    gen_all_traces(
-            array_h=dimensions, array_w=dimensions,
-            ifmap_h=ifmap_h, ifmap_w=ifmap_w, num_channels=num_channels,
-            filt_h=filt_h, filt_w=filt_w, num_filt=num_filters,
-            strides=strides,
-
-            ifmap_sram_size=ifmap_sram_size, filter_sram_size=filter_sram_size, ofmap_sram_size=ofmap_sram_size,
-            word_size_bytes=word_sz,
-            ifmap_base=ifmap_base, filt_base=filter_base, ofmap_base=ofmap_base,
-
-            sram_read_trace_file=sram_read_trace, sram_write_trace_file=sram_write_trace,
-            dram_ifmap_trace_file=dram_ifmap_read_trace, dram_filter_trace_file=dram_filter_read_trace, dram_ofmap_trace_file=dram_write_trace
-        )
-#
-
-if __name__ == '__main__':
-    test()'''
