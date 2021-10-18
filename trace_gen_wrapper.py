@@ -38,10 +38,7 @@ def gen_all_traces(
 
                     ifmap=ifmap, filt=filt, ch=ch,
                     num_filt=num_filt,
-                    stride=stride,
-
-                    base_addr=base_addr,
-                    sram_trace_path=trace_path['sram']
+                    stride=stride
                 )
 
     #print('Generating DRAM traffic')
