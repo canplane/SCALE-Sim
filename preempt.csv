@@ -1,0 +1,5 @@
+Network, Network Path, Priority, Arrive Time,
+
+AlexNet, "./conv_nets/alexnet.csv", 9, 0,
+GoggLeNet, "./conv_nets/Googlenet.csv", 3, 0,
+MobileNet, "./conv_nets/mobilenet.csv", 1, 0,

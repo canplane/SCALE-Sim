@@ -34,7 +34,7 @@ def gen_all_traces(
     print('Generating traces and bw numbers')
     sram_cycles, util = \
             { 'os': sram_os, 'ws': sram_ws, 'is': sram_is }.get(dataflow, 'os').sram_traffic(
-                    array=array, #dimension_rows=array_h, dimension_cols=array_w,
+                    array=array,
 
                     ifmap=ifmap, filt=filt, ch=ch,
                     num_filt=num_filt,

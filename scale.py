@@ -1,4 +1,5 @@
 import run_nets as r
+import preempt
 
 import os
 import datetime
@@ -89,6 +90,13 @@ class scale:
         print(f"CSV filepath: \t{self.net_path}")
         print(f"Net name: \t{net_name}")
         print("====================================================")
+
+        
+        ###
+        preemption_module = preempt.PreemptionModule('./preempt.csv')
+        
+
+        ###
 
         r.run_net(
                 array=self.array,

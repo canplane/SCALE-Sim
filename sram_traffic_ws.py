@@ -17,17 +17,17 @@ def sram_traffic(
         ):
 
     # Dimensions of output feature map channel
-    E_h = math.floor((ifmap['h'] - filt['h'] + stride) / stride)
-    E_w = math.floor((ifmap['w'] - filt['w'] + stride) / stride)
+    E_h = math.floor((ifmap['h'] - filt['h'] + stride) / stride)                    #
+    E_w = math.floor((ifmap['w'] - filt['w'] + stride) / stride)                    #
     
     # Number of pixels in one convolution window (한 필터 윈도우에 들어가는 픽셀 수?)
-    px_per_filt = filt['h'] * filt['w'] * ch
-    r2c = px_per_filt
+    px_per_filt = filt['h'] * filt['w'] * ch                                        #
+    r2c = px_per_filt                                                               #
 
     # Total number of ofmap px across all channels
-    num_ofmap_px = E_h * E_w * num_filt
-    e2  = E_h * E_w
-    e2m = num_ofmap_px
+    num_ofmap_px = E_h * E_w * num_filt                                             #
+    e2  = E_h * E_w                                                                 #
+    e2m = num_ofmap_px                                                              #
 
     # Variables for utilization calculation
     util = 0
@@ -130,7 +130,7 @@ def sram_traffic(
                 util += util_this_fold *  del_cycl
                 compute_cycles += del_cycl
                 prev_cycl = cycles
-
+        #
         else:
             #filters_this_fold = min(remaining_cols, max_cols_per_v_fold)
             filt_done = v * max_parallel_window * array['w']
@@ -191,8 +191,12 @@ def sram_traffic(
             util += util_this_fold * del_cycl
             compute_cycles += del_cycl
             prev_cycl = cycles
+        #
 
         remaining_cols -= cols_this_fold
+
+
+    #
 
     final = str(cycles)
     final_util = (util / compute_cycles) * 100
