@@ -1,19 +1,13 @@
 from arch import Architecture
-from context_table import ContextTable
-import prema
+from scheduler import Scheduler
 
-import run_nets
+import run_nets as r
 
 import os
-import datetime
 import argparse
 
 
-def t_str():
-    dt = datetime.datetime.now(datetime.timezone.utc)
-    return dt.astimezone().strftime('%Y%m%d_%H%M%S')
-
-def df_string(df_str):
+def _df_string(df_str):
     ret = 'Output Stationary'  # os
     if df_str == 'ws':
         ret = 'Weight Stationary'
@@ -29,19 +23,14 @@ class Scale:
         if t == '':
             t = './task_list.csv'
 
-        #print(f"Using Architecture from {self.config_path}")
-        self.arch = Architecture(a)
-        self.context_table = ContextTable(t)
+        self.arch = Architecture()
+        self.arch.load_from_cfg(a)
+
+        self.scheduler = Scheduler(out_dir=self.arch.out_dir)
+        self.scheduler.load_from_csv(t)
     #
 
     def run(self):
-        ## Set output directory
-        if not os.path.exists('./outputs/'):
-            os.system('mkdir ./outputs')
-        self.arch.output_dir = f"./outputs/{self.arch.run_name}-{t_str()}"
-        os.system(f"mkdir {self.arch.output_dir}")
-
-
         print("====================================================")
         print("******************* SCALE SIM **********************")
         print("====================================================")
@@ -49,15 +38,15 @@ class Scale:
         print(f"SRAM IFMAP: \t{self.arch.sram_sz['ifmap']}")
         print(f"SRAM Filter: \t{self.arch.sram_sz['filt']}")
         print(f"SRAM OFMAP: \t{self.arch.sram_sz['ofmap']}")
-        print(f"Dataflow: \t{df_string()}")
+        print(f"Dataflow: \t{_df_string()}")
         print("====================================================")
 
-        TIME_QUOTA = 0.25
+        self.scheduler.init()
         while True:
-            next_task = prema.select(self.context_table)
-            if next_task == None:
+            task = self.scheduler.switch(self.context_table)
+            if task == None:
                 break
-            run_nets.run_slot(self.arch, next_task, TIME_QUOTA)
+            r.run_slot(self.arch, task, self.scheduler)
         
         print("************ SCALE SIM Run Complete ****************")
     #

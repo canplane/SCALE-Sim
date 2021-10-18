@@ -1,15 +1,28 @@
+import os
+import datetime
 import configparser as cp
 
 
+def _t_str():
+    dt = datetime.datetime.now(datetime.timezone.utc)
+    return dt.astimezone().strftime('%Y%m%d_%H%M%S')
+
+
 class Architecture:
-    ## load from cfg
-    def __init__(self, path):
+    def __init__(self):
+        if not os.path.exists('./outputs/'):
+            os.system('mkdir ./outputs')
+        self.out_dir = f"./output/{self.name}-{_t_str()}"
+        os.system(f"mkdir {self.out_dir}")
+    #
+
+    def load_from_cfg(self, path):
         cfg = cp.ConfigParser()
         cfg.read(path)
         
         ## Read the run_name
         section = 'general'
-        self.run_name = cfg.get(section, 'run_name')
+        self.name = cfg.get(section, 'run_name')
 
         ## Read the architecture_presets
         section = 'architecture_presets'
