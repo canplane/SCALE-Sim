@@ -60,7 +60,25 @@ def sram_traffic(arch, layer, scheduler):
     pbar_h = tqdm(total=num_h_fold, initial=start_h)
     pbar_v = tqdm(total=num_v_fold, initial=start_v)
     try:
+        first_v = True
         for v in range(start_v, num_v_fold):
+            ####
+            if not first_v:
+                layer.store_var('v', v)
+                layer.store_var('h', 0)
+                layer.store_var('cycles', cycles)
+                layer.store_var('util', util)
+                layer.store_var('compute_cycles', compute_cycles)
+                layer.store_var('remaining_cols', remaining_cols)
+
+                pbar_v.update(1)
+                pbar_h.reset()
+            
+                scheduler.refresh()
+            else:
+                first_v = False
+            ####
+
             #print("V fold id: " + str(v))
                 
             # Take a slice of the starting addresses that are relevant for this v_fold 
@@ -68,12 +86,29 @@ def sram_traffic(arch, layer, scheduler):
             idx_start = v * arch.array['w']
             idx_end = idx_start + cols_this_fold
             col_addr_list = all_col_addr_list[idx_start:idx_end]
-
+            
             if num_h_fold > 1:
                 rem_h = layer.load_var('rem_h', r2c)                     # Tracks the elements processed within a conv filter 
                 #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
 
+                first_h = True
                 for h in range(start_h, num_h_fold):
+                    ####
+                    if not first_h:
+                        layer.store_var('v', v)
+                        layer.store_var('h', h)
+                        layer.store_var('cycles', cycles)
+                        layer.store_var('util', util)
+                        layer.store_var('compute_cycles', compute_cycles)
+                        layer.store_var('rem_h', rem_h)
+
+                        pbar_h.update(1)
+
+                        scheduler.refresh()
+                    else:
+                        first_h = False
+                    ####
+
                     rows_this_fold = min(rem_h, arch.array['h'])
                     #print("h fold id: " + str(h))
 
@@ -121,23 +156,9 @@ def sram_traffic(arch, layer, scheduler):
                     cycles = max(cycles_ifmap, cycles_ofmap)
 
                     del_cycl = cycles - prev_cycl
-                    util += util_this_fold *  del_cycl
+                    util += util_this_fold * del_cycl
                     compute_cycles += del_cycl
                     prev_cycl = cycles
-
-                    ####
-                    if h < num_h_fold - 1:
-                        layer.store_var('v', v)
-                        layer.store_var('h', h + 1)
-                        layer.store_var('cycles', cycles)
-                        layer.store_var('util', util)
-                        layer.store_var('compute_cycles', compute_cycles)
-                        layer.store_var('rem_h', rem_h)
-
-                        pbar_h.update(1)
-
-                        #scheduler.refresh()
-                    ####
                 #
             #
             else:
@@ -201,23 +222,6 @@ def sram_traffic(arch, layer, scheduler):
                 prev_cycl = cycles
             #
             remaining_cols -= cols_this_fold
-
-            ####
-            layer.store_var('v', v + 1)
-            layer.store_var('h', num_h_fold)
-            layer.store_var('cycles', cycles)
-            layer.store_var('util', util)
-            layer.store_var('compute_cycles', compute_cycles)
-            layer.store_var('remaining_cols', remaining_cols)
-
-            if v < num_v_fold - 1:
-                pbar_h.reset()
-            else:
-                pbar_h.update(1)
-            pbar_v.update(1)
-            
-            #scheduler.refresh()
-            ####
         #
     finally:
         pbar_h.close()

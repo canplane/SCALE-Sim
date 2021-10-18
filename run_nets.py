@@ -6,7 +6,15 @@ def run_slot(arch, task, scheduler):
     print(f"Network: \t{task.name}")
     print("----------------------------------------------------")
     
+    first = True
     for i in range(task.current_layer_idx, len(task.layers)):
+        ####
+        if not first:
+            scheduler.refresh()
+        else:
+            first = False
+        ####
+
         layer = task.layers[i]
 
         print("Commencing run for " + layer.name)
@@ -24,8 +32,7 @@ def run_slot(arch, task, scheduler):
             f.write(f"{layer.name},\t{sram_cycles},\t{util}," + '\n')
 
         print("")
-        ####
-        scheduler.refresh()
-        ####
     #
+    
+    task.state = 'END'
 #

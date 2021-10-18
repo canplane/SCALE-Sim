@@ -55,7 +55,7 @@ class Scale:
             except Preemption:
                 print("Checkpointed!!")
             ####
-            break
+            
         
         print("************ SCALE SIM Run Complete ****************")
     #

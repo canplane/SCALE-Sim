@@ -56,6 +56,8 @@ class Scheduler:
         raise Preemption()
     #
     def switch(self):
+        if self.context_table[0].state == 'END':
+            return None
         return self.context_table[0]
     #
 #
