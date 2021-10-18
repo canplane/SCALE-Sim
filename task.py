@@ -2,36 +2,23 @@ import os
 
 
 class Task:
-    name: str = None
-
-    ## Context table
-    task_id: int = None
-    execution_time: dict = {
-        'executed': 0,
-        'waited': 0,
-        'estimated': None
-    }
-    priority: int = None
-    token: int = None
-    state: str = "NEW"      # NEW, READY, RUN, END
-    ##
-
-    arrival_time: int = None
-
-    layers: list = None
-    current_layer_idx: int = None
-
-    out_dir: str = None
-    log_paths: dict = None
-
     def __init__(self, 
                 task_id=None, net_name=None, net_path=None, priority=None, arrival_time=None,
                 out_parent_dir=None,
             ):
         self.name = net_name
         
+        ## Context table
         self.task_id = task_id
+        self.execution_time = {
+            'executed': 0,
+            'waited': 0,
+            'estimated': None
+        }
         self.priority = priority
+        self.token = None
+        self.state = "NEW"      # NEW, READY, RUN, END
+
         self.arrival_time = arrival_time
 
         self._set_output(out_parent_dir)
@@ -103,16 +90,6 @@ class Task:
     
     
     class Layer:
-        name: str = None
-        ifmap: dict = None
-        filt: dict = None
-        ch: int = None
-        num_filt: int = None
-        stride: int = None
-
-        out_dir: str = None
-        trace_paths: dict = None
-
         def __init__(self,
                     layer_name=None, 
                     ifmap=None, filt=None, ch=None,
@@ -125,6 +102,9 @@ class Task:
             self.ifmap, self.filt, self.ch = ifmap, filt, ch
             self.num_filt = num_filt
             self.stride = stride
+
+            ## Context
+            self.context_var = {}
 
             self._set_output(out_parent_dir)
         #
@@ -144,5 +124,13 @@ class Task:
                     'ofmap': f"{self.out_dir}/dram_ofmap_write.csv"
                 }
             }
+        
+        def load_var(self, key, init_value):
+            if key not in self.context_var:
+                self.context_var[key] = init_value
+            return self.context_var[key]
+        
+        def store_var(self, key, value):
+            self.context_var[key] = value
     #
 #

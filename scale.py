@@ -5,6 +5,8 @@ import run_nets as r
 from arch import Architecture
 from scheduler import Scheduler, Preemption
 
+import time
+
 
 def _df_string(dataflow):
     ret = 'Output Stationary'  # os
@@ -36,9 +38,9 @@ class Scale:
         print(f"Architecture: \t{self.arch.name}")
         print("----------------------------------------------------")
         print(f"Array Size: \t{self.arch.array['h']}x{self.arch.array['w']}")
-        print(f"SRAM IFMAP: \t{self.arch.sram_sz['ifmap']}")
-        print(f"SRAM Filter: \t{self.arch.sram_sz['filt']}")
-        print(f"SRAM OFMAP: \t{self.arch.sram_sz['ofmap']}")
+        print(f"SRAM IFMAP: \t{int(self.arch.sram_sz['ifmap'] / 1024)}")
+        print(f"SRAM Filter: \t{int(self.arch.sram_sz['filt'] / 1024)}")
+        print(f"SRAM OFMAP: \t{int(self.arch.sram_sz['ofmap'] / 1024)}")
         print(f"Dataflow: \t{_df_string(self.arch.dataflow)}")
         print("====================================================")
 
@@ -53,8 +55,7 @@ class Scale:
             except Preemption:
                 print("Checkpointed!!")
             ####
-
-            break ##
+            break
         
         print("************ SCALE SIM Run Complete ****************")
     #

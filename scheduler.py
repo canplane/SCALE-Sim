@@ -8,12 +8,10 @@ class Preemption(Exception):
 
 
 class Scheduler:
-    context_table: dict = {}
-    next_task_id: int = 0
-
-    out_dir: str = None
-
     def __init__(self, out_dir="./outputs", csv_path=None):
+        self.context_table = {}
+        self.next_task_id = 0
+
         self.out_dir = out_dir
         if not csv_path == None:
             self._load_from_csv(csv_path)

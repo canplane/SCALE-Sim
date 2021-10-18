@@ -16,10 +16,6 @@ def sram_traffic(arch, layer, scheduler):
     e2  = E_h * E_w
     e2m = num_ofmap_px
 
-    # Variables for utilization calculation
-    util = 0
-    compute_cycles = 0
-
     # Variables to calculate folds in runtime
     # num_h_fold : horizontal선으로 접기 : 하나의 컨볼루션 필터 커널의 칸 수 * 채널 수와 관련
     # num_v_fold : vertical선으로 접기: 필터 개수와 관련
@@ -35,10 +31,18 @@ def sram_traffic(arch, layer, scheduler):
     num_v_fold = math.ceil(reqd_cols / max_cols_per_v_fold)
 
     ############################# 여기까지 봄
+
+    # Variables for utilization calculation
+    util = layer.load_var('util', 0)
+    compute_cycles = layer.load_var('compute_cycles', 0)
     
-    remaining_cols = reqd_cols
-    cycles = 0
-    prev_cycl = 0
+    remaining_cols = layer.load_var('remaining_cols', reqd_cols)
+    cycles = layer.load_var('cycles', 0)
+    prev_cycl = cycles
+
+    start_v = layer.load_var('v', 0)
+    start_h = layer.load_var('h', 0)
+    print(f"{cycles} : {start_v} {start_h}")
 
     #print("Vertical folds = " +str(num_v_fold))
    
@@ -52,12 +56,10 @@ def sram_traffic(arch, layer, scheduler):
         addr = (px / E_w) * stride * hc + (px % E_w) * stride
         all_ifmap_base_addr.append(addr)'''
 
-    pbar_h = tqdm(total=num_h_fold)
-    pbar_v = tqdm(total=num_v_fold)
+    pbar_h = tqdm(total=num_h_fold, initial=start_h)
+    pbar_v = tqdm(total=num_v_fold, initial=start_v)
     try:
-        for v in range(num_v_fold):
-            pbar_h.reset()
-
+        for v in range(start_v, num_v_fold):
             #print("V fold id: " + str(v))
                 
             # Take a slice of the starting addresses that are relevant for this v_fold 
@@ -67,10 +69,10 @@ def sram_traffic(arch, layer, scheduler):
             col_addr_list = all_col_addr_list[idx_start:idx_end]
 
             if num_h_fold > 1:
-                rem_h = r2c                     # Tracks the elements processed within a conv filter 
+                rem_h = layer.load_var('rem_h', r2c)                     # Tracks the elements processed within a conv filter 
                 #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
 
-                for h in range(num_h_fold):
+                for h in range(start_h, num_h_fold):
                     rows_this_fold = min(rem_h, arch.array['h'])
                     #print("h fold id: " + str(h))
 
@@ -124,7 +126,15 @@ def sram_traffic(arch, layer, scheduler):
 
                     ####
                     if h < num_h_fold - 1:
+                        layer.store_var('v', v)
+                        layer.store_var('h', h + 1)
+                        layer.store_var('cycles', cycles)
+                        layer.store_var('util', util)
+                        layer.store_var('compute_cycles', compute_cycles)
+                        layer.store_var('rem_h', rem_h)
+
                         pbar_h.update(1)
+
                         #scheduler.refresh()
                     ####
                 #
@@ -192,9 +202,20 @@ def sram_traffic(arch, layer, scheduler):
             remaining_cols -= cols_this_fold
 
             ####
-            pbar_h.update(1)
+            layer.store_var('v', v + 1)
+            layer.store_var('h', num_h_fold)
+            layer.store_var('cycles', cycles)
+            layer.store_var('util', util)
+            layer.store_var('compute_cycles', compute_cycles)
+            layer.store_var('remaining_cols', remaining_cols)
+
+            if v < num_v_fold - 1:
+                pbar_h.reset()
+            else:
+                pbar_h.update(1)
             pbar_v.update(1)
-            scheduler.refresh()
+            
+            #scheduler.refresh()
             ####
         #
     finally:

@@ -9,14 +9,6 @@ def _t_str():
 
 
 class Architecture:
-    name: str = None
-    array: dict = None
-    sram_sz: dict = None
-    base_addr: dict = None
-    dataflow: str = None
-
-    out_dir: str = None
-
     def __init__(self, cfg_path=None):
         self._load_from_cfg(cfg_path)
 
