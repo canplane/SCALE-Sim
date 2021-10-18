@@ -52,7 +52,7 @@ def sram_traffic(arch, layer, scheduler):
         addr = (px / E_w) * stride * hc + (px % E_w) * stride
         all_ifmap_base_addr.append(addr)'''
 
-    for v in tqdm(range(int(num_v_fold))):
+    for v in tqdm(range(num_v_fold)):
         #print("V fold id: " + str(v))
             
         # Take a slice of the starting addresses that are relevant for this v_fold 
@@ -61,12 +61,11 @@ def sram_traffic(arch, layer, scheduler):
         idx_end = idx_start + cols_this_fold
         col_addr_list = all_col_addr_list[idx_start:idx_end]
 
-        if num_h_fold > 1 :
-           
+        if num_h_fold > 1:
             rem_h = r2c                     # Tracks the elements processed within a conv filter 
             #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
 
-            for h in range(num_h_fold):
+            for h in tqdm(range(num_h_fold), leave=(True if v == num_v_fold - 1 else False)):
                 rows_this_fold = min(rem_h, arch.array['h'])
                 #print("h fold id: " + str(h))
 
@@ -118,6 +117,11 @@ def sram_traffic(arch, layer, scheduler):
                 compute_cycles += del_cycl
                 prev_cycl = cycles
 
+                ####
+                scheduler.refresh()
+                ####
+            #
+        #
         else:
             #filters_this_fold = min(remaining_cols, max_cols_per_v_fold)
             filt_done = v * max_parallel_window * arch.array['w']
@@ -178,7 +182,13 @@ def sram_traffic(arch, layer, scheduler):
             compute_cycles += del_cycl
             prev_cycl = cycles
 
+            ####
+            scheduler.refresh()
+            ####
+        #
+
         remaining_cols -= cols_this_fold
+    #
 
     final = str(cycles)
     final_util = (util / compute_cycles) * 100

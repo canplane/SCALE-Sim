@@ -1,10 +1,9 @@
-from arch import Architecture
-from scheduler import Scheduler
+import argparse
 
 import run_nets as r
 
-import os
-import argparse
+from arch import Architecture
+from scheduler import Scheduler, Foo_Error
 
 
 def _df_string(dataflow):
@@ -17,9 +16,12 @@ def _df_string(dataflow):
 
 
 class Scale:
+    arch: Architecture = None
+    scheduler: Scheduler = None
+
     def __init__(self, a='', t=''):
         if a == '':
-            a = './configs/eyeriss.cfg'
+            a = './architectures/eyeriss.cfg'
         if t == '':
             t = './task_list.csv'
 
@@ -31,6 +33,8 @@ class Scale:
         print("====================================================")
         print("******************* SCALE SIM **********************")
         print("====================================================")
+        print(f"Architecture: \t{self.arch.name}")
+        print("----------------------------------------------------")
         print(f"Array Size: \t{self.arch.array['h']}x{self.arch.array['w']}")
         print(f"SRAM IFMAP: \t{self.arch.sram_sz['ifmap']}")
         print(f"SRAM Filter: \t{self.arch.sram_sz['filt']}")
@@ -43,7 +47,11 @@ class Scale:
             task = self.scheduler.switch()
             if task == None:
                 break
-            r.run_slot(self.arch, task, self.scheduler)
+            try:
+                r.run_slot(self.arch, task, self.scheduler)
+            except Foo_Error:
+                print("잡았다 요놈!")
+
             break
         
         print("************ SCALE SIM Run Complete ****************")

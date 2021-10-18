@@ -2,10 +2,13 @@ import trace_gen_wrapper as tg
 
 
 def run_slot(arch, task, scheduler):
+    print("")
+    print(f"Network: \t{task.name}")
+    print("----------------------------------------------------")
+    
     for i in range(task.current_layer_idx, len(task.layers)):
         layer = task.layers[i]
 
-        print("")
         print("Commencing run for " + layer.name)
 
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)
@@ -20,11 +23,9 @@ def run_slot(arch, task, scheduler):
         with open(task.log_paths['cycles'], 'a') as f:
             f.write(f"{layer.name},\t{sram_cycles},\t{util}," + '\n')
 
+        print("")
         ####
         scheduler.refresh()
-        if task.interrupted == True:
-            return
         ####
     #
-    print('')
 #
