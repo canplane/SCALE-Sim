@@ -126,7 +126,7 @@ class Task:
             }
         
         def load_var(self, key, init_value):
-            if key not in self.context_var:
+            if key not in self._context_var:
                 self._context_var[key] = init_value
             return self._context_var[key]
         

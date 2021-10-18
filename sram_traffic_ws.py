@@ -56,6 +56,7 @@ def sram_traffic(arch, layer, scheduler):
         addr = (px / E_w) * stride * hc + (px % E_w) * stride
         all_ifmap_base_addr.append(addr)'''
 
+    print(num_h_fold, num_v_fold)
     pbar_h = tqdm(total=num_h_fold, initial=start_h)
     pbar_v = tqdm(total=num_v_fold, initial=start_v)
     try:
