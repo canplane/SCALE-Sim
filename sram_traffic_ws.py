@@ -52,143 +52,154 @@ def sram_traffic(arch, layer, scheduler):
         addr = (px / E_w) * stride * hc + (px % E_w) * stride
         all_ifmap_base_addr.append(addr)'''
 
-    for v in tqdm(range(num_v_fold)):
-        #print("V fold id: " + str(v))
+    pbar_h = tqdm(total=num_h_fold)
+    pbar_v = tqdm(total=num_v_fold)
+    try:
+        for v in range(num_v_fold):
+            pbar_h.reset()
+
+            #print("V fold id: " + str(v))
+                
+            # Take a slice of the starting addresses that are relevant for this v_fold 
+            cols_this_fold = min(remaining_cols, max_parallel_window * arch.array['w'])
+            idx_start = v * arch.array['w']
+            idx_end = idx_start + cols_this_fold
+            col_addr_list = all_col_addr_list[idx_start:idx_end]
+
+            if num_h_fold > 1:
+                rem_h = r2c                     # Tracks the elements processed within a conv filter 
+                #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
+
+                for h in range(num_h_fold):
+                    rows_this_fold = min(rem_h, arch.array['h'])
+                    #print("h fold id: " + str(h))
+
+                    # Values returned
+                    # cycles        -> Cycle count for the next operation ie. cycles elapsed + 1
+                    # col_addr_list -> The starting filter address for the next iteration
+                    cycles, col_addr_list = gen_trace_filter_partial(
+                            col_addrs   = col_addr_list,
+                            cycle       = cycles,
+                            num_rows    = arch.array['h'],
+                            remaining   = rows_this_fold,
+                            sram_read_trace_file = layer.trace_paths['sram']['read']
+                        )
+                    #print("Weights loaded by " + str(cycles) + " cycles")
+                    data_out_cycles = cycles    #Store this cycle for parallel readout
+                    cycles_ifmap = gen_trace_ifmap_partial(
+                            cycle = cycles,
+                            num_rows = arch.array['h'], num_cols = arch.array['w'],
+                            num_filters = layer.num_filt,
+                            remaining = rem_h,
+                            remaining_filters = remaining_cols, 
+                            ifmap_h = layer.ifmap['h'], ifmap_w = layer.ifmap['w'],
+                            filt_h = layer.filt['h'], filt_w = layer.filt['w'],
+                            num_channels = layer.ch,
+                            stride = layer.stride, ifmap_base = arch.base_addr['ifmap'],
+                            sram_read_trace_file = layer.trace_paths['sram']['read']
+                        )
+                    cycles_ofmap = gen_trace_ofmap(
+                            cycle = data_out_cycles,
+                            num_rows = arch.array['h'],
+                            num_cols = arch.array['w'],
+                            ofmap_base = arch.base_addr['ofmap'],
+                            window_size= rows_this_fold,
+                            parallel_window =1,
+                            num_ofmap_px = int(e2),
+                            filters_done = (v * arch.array['w']),
+                            num_filter = layer.num_filt,
+                            sram_write_trace_file = layer.trace_paths['sram']['write']
+                        ) 
+
+                    #print("IFMAPS processed by " + str(cycles) + " cycles")
+                    util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
+
+                    rem_h -= rows_this_fold
+                    cycles = max(cycles_ifmap, cycles_ofmap)
+
+                    del_cycl = cycles - prev_cycl
+                    util += util_this_fold *  del_cycl
+                    compute_cycles += del_cycl
+                    prev_cycl = cycles
+
+                    ####
+                    if h < num_h_fold - 1:
+                        pbar_h.update(1)
+                        #scheduler.refresh()
+                    ####
+                #
+            #
+            else:
+                #filters_this_fold = min(remaining_cols, max_cols_per_v_fold)
+                filt_done = v * max_parallel_window * arch.array['w']
+                rem = layer.num_filt - filt_done
+
+                parallel_window = math.ceil(rem / arch.array['w'])
+                parallel_window = int(min(max_parallel_window, parallel_window))
             
-        # Take a slice of the starting addresses that are relevant for this v_fold 
-        cols_this_fold = min(remaining_cols, max_parallel_window * arch.array['w'])
-        idx_start = v * arch.array['w']
-        idx_end = idx_start + cols_this_fold
-        col_addr_list = all_col_addr_list[idx_start:idx_end]
-
-        if num_h_fold > 1:
-            rem_h = r2c                     # Tracks the elements processed within a conv filter 
-            #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
-
-            for h in tqdm(range(num_h_fold), leave=(True if v == num_v_fold - 1 else False)):
-                rows_this_fold = min(rem_h, arch.array['h'])
-                #print("h fold id: " + str(h))
-
-                # Values returned
-                # cycles        -> Cycle count for the next operation ie. cycles elapsed + 1
-                # col_addr_list -> The starting filter address for the next iteration
-                cycles, col_addr_list = gen_trace_filter_partial(
-                        col_addrs   = col_addr_list,
-                        cycle       = cycles,
-                        num_rows    = arch.array['h'],
-                        remaining   = rows_this_fold,
-                        sram_read_trace_file = layer.trace_paths['sram']['read']
-                    )
-                #print("Weights loaded by " + str(cycles) + " cycles")
-                data_out_cycles = cycles    #Store this cycle for parallel readout
-                cycles_ifmap = gen_trace_ifmap_partial(
+                cycles_filter = gen_filter_trace(
                         cycle = cycles,
                         num_rows = arch.array['h'], num_cols = arch.array['w'],
-                        num_filters = layer.num_filt,
-                        remaining = rem_h,
-                        remaining_filters = remaining_cols, 
-                        ifmap_h = layer.ifmap['h'], ifmap_w = layer.ifmap['w'],
-                        filt_h = layer.filt['h'], filt_w = layer.filt['w'],
-                        num_channels = layer.ch,
-                        stride = layer.stride, ifmap_base = arch.base_addr['ifmap'],
+                        filt_h = layer.filt['h'], filt_w = layer.filt['w'], num_channels = layer.ch,
+                        col_addr = col_addr_list, 
+                        parallel_window = parallel_window,
+                        filters_this_fold = cols_this_fold,
                         sram_read_trace_file = layer.trace_paths['sram']['read']
                     )
+
+                cycles_ifmap, rows_this_fold = gen_ifmap_trace(
+                        cycle = cycles_filter,
+                        num_rows = arch.array['h'], num_cols = arch.array['w'],
+                        ifmap_h = layer.ifmap['h'], ifmap_w = layer.ifmap['w'],
+                        filt_h = layer.filt['h'], filt_w = layer.filt['w'],
+                        num_channels = layer.ch, stride = layer.stride,
+                        parallel_window = parallel_window,
+                        sram_read_trace_file = layer.trace_paths['sram']['read']
+                    )
+
                 cycles_ofmap = gen_trace_ofmap(
-                        cycle = data_out_cycles,
-                        num_rows = arch.array['h'],
-                        num_cols = arch.array['w'],
-                        ofmap_base = arch.base_addr['ofmap'],
-                        window_size= rows_this_fold,
-                        parallel_window =1,
+                        cycle = cycles_filter,
+                        num_rows = arch.array['h'], num_cols = arch.array['w'],
+                        ofmap_base = arch.base_addr['ofmap'], 
+                        parallel_window = parallel_window,
+                        window_size = r2c,
                         num_ofmap_px = int(e2),
-                        filters_done = (v * arch.array['w']),
+                        filters_done = int(v * max_parallel_window * arch.array['w']),
                         num_filter = layer.num_filt,
                         sram_write_trace_file = layer.trace_paths['sram']['write']
-                    ) 
-
-                #print("IFMAPS processed by " + str(cycles) + " cycles")
-                util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
-
-                rem_h -= rows_this_fold
+                    )
                 cycles = max(cycles_ifmap, cycles_ofmap)
-
                 del_cycl = cycles - prev_cycl
-                util += util_this_fold *  del_cycl
+
+                # Since multiple filters are being mapped on a single col due to large number of rows
+                # util calculation is a little involved,
+                # cols_this_fold --> number of filters mapped this fold
+                rem = cols_this_fold
+                tmp_util = 0
+                for _ in range(parallel_window):
+                    col_used = min(rem, arch.array['w'])
+                    row_used = r2c                      # Number of row used will always be in multiple of r2c,
+                                                        # parallel window calc took care of this
+                    tmp_util += row_used * col_used
+                    rem -= col_used
+
+                #util_this_fold = (rows_this_fold * cols_this_fold) /(dimension_rows * dimension_cols)
+                util_this_fold = tmp_util / (arch.array['h'] * arch.array['w'])
+                util += util_this_fold * del_cycl
                 compute_cycles += del_cycl
                 prev_cycl = cycles
-
-                ####
-                scheduler.refresh()
-                ####
             #
-        #
-        else:
-            #filters_this_fold = min(remaining_cols, max_cols_per_v_fold)
-            filt_done = v * max_parallel_window * arch.array['w']
-            rem = layer.num_filt - filt_done
-
-            parallel_window = math.ceil(rem / arch.array['w'])
-            parallel_window = int(min(max_parallel_window, parallel_window))
-        
-            cycles_filter = gen_filter_trace(
-                    cycle = cycles,
-                    num_rows = arch.array['h'], num_cols = arch.array['w'],
-                    filt_h = layer.filt['h'], filt_w = layer.filt['w'], num_channels = layer.ch,
-                    col_addr = col_addr_list, 
-                    parallel_window = parallel_window,
-                    filters_this_fold = cols_this_fold,
-                    sram_read_trace_file = layer.trace_paths['sram']['read']
-                )
-
-            cycles_ifmap, rows_this_fold = gen_ifmap_trace(
-                    cycle = cycles_filter,
-                    num_rows = arch.array['h'], num_cols = arch.array['w'],
-                    ifmap_h = layer.ifmap['h'], ifmap_w = layer.ifmap['w'],
-                    filt_h = layer.filt['h'], filt_w = layer.filt['w'],
-                    num_channels = layer.ch, stride = layer.stride,
-                    parallel_window = parallel_window,
-                    sram_read_trace_file = layer.trace_paths['sram']['read']
-                )
-
-            cycles_ofmap = gen_trace_ofmap(
-                    cycle = cycles_filter,
-                    num_rows = arch.array['h'], num_cols = arch.array['w'],
-                    ofmap_base = arch.base_addr['ofmap'], 
-                    parallel_window = parallel_window,
-                    window_size = r2c,
-                    num_ofmap_px = int(e2),
-                    filters_done = int(v * max_parallel_window * arch.array['w']),
-                    num_filter = layer.num_filt,
-                    sram_write_trace_file = layer.trace_paths['sram']['write']
-                )
-            cycles = max(cycles_ifmap, cycles_ofmap)
-            del_cycl = cycles - prev_cycl
-
-            # Since multiple filters are being mapped on a single col due to large number of rows
-            # util calculation is a little involved,
-            # cols_this_fold --> number of filters mapped this fold
-            rem = cols_this_fold
-            tmp_util = 0
-            for _ in range(parallel_window):
-                col_used = min(rem, arch.array['w'])
-                row_used = r2c                      # Number of row used will always be in multiple of r2c,
-                                                    # parallel window calc took care of this
-                tmp_util += row_used * col_used
-                rem -= col_used
-
-            #util_this_fold = (rows_this_fold * cols_this_fold) /(dimension_rows * dimension_cols)
-            util_this_fold = tmp_util / (arch.array['h'] * arch.array['w'])
-            util += util_this_fold * del_cycl
-            compute_cycles += del_cycl
-            prev_cycl = cycles
+            remaining_cols -= cols_this_fold
 
             ####
+            pbar_h.update(1)
+            pbar_v.update(1)
             scheduler.refresh()
             ####
         #
-
-        remaining_cols -= cols_this_fold
-    #
+    finally:
+        pbar_h.close()
+        pbar_v.close()
 
     final = str(cycles)
     final_util = (util / compute_cycles) * 100
