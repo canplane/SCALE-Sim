@@ -98,7 +98,7 @@ def gen_max_bw_numbers(
     
     ## dram_filter_trace_file
     max_dram_filter_bw, max_dram_filt_clk = 0, ''
-    with open(trace_path['dram']['filter'], 'r') as f:
+    with open(trace_path['dram']['filt'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2

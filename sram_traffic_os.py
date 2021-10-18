@@ -4,16 +4,26 @@ from tqdm import tqdm
 neg_inf = -1 * math.pow(2,32)
 
 def sram_traffic(
-        dimension_rows=4,
-        dimension_cols=4,
-        ifmap_h=7, ifmap_w=7,
-        filt_h=3, filt_w=3,
-        num_channels=3,
-        strides=1, num_filt=8,
-        ofmap_base=2000000, filt_base=1000000, ifmap_base=0,
-        sram_read_trace_file="sram_read.csv",
-        sram_write_trace_file="sram_write.csv"
-):
+            array={ 'h': 4, 'w': 4 },
+
+            ifmap={ 'h': 7, 'w': 7 }, filt={ 'h': 3, 'w': 3 }, ch=3,
+            num_filt=8,
+            stride=1,
+
+            base_addr={ 'ifmap': 0, 'filt': 1000000, 'ofmap': 2000000 },
+            sram_trace_path={
+                'read': "./sram_read.csv",
+                'write': "./sram_write.csv"
+            }
+        ):
+    dimension_rows, dimension_cols = array['h'], array['w']
+    ifmap_h, ifmap_w = ifmap['h'], ifmap['w']
+    filt_h, filt_w = filt['h'], filt['w']
+    num_channels = ch
+    strides = stride
+    ofmap_base, filt_base, ifmap_base = base_addr['ofmap'], base_addr['filt'], base_addr['ifmap']
+    sram_read_trace_file, sram_write_trace_file = sram_trace_path['read'], sram_trace_path['write']
+    ###
 
 
     # Dimensions of output feature map channel

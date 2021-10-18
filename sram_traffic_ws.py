@@ -21,8 +21,8 @@ def sram_traffic(
     E_w = math.floor((ifmap['w'] - filt['w'] + stride) / stride)
     
     # Number of pixels in one convolution window (한 필터 윈도우에 들어가는 픽셀 수?)
-    px_per_conv_window = filt['h'] * filt['w'] * ch
-    r2c = px_per_conv_window
+    px_per_filt = filt['h'] * filt['w'] * ch
+    r2c = px_per_filt
 
     # Total number of ofmap px across all channels
     num_ofmap_px = E_h * E_w * num_filt
@@ -36,12 +36,12 @@ def sram_traffic(
     # Variables to calculate folds in runtime
     # num_h_fold : horizontal선으로 접기 : 하나의 컨볼루션 필터 커널의 칸 수 * 채널 수와 관련
     # num_v_fold : vertical선으로 접기: 필터 개수와 관련
-    if array['h'] < px_per_conv_window:
-        num_h_fold = math.ceil(px_per_conv_window / array['h'])
+    if array['h'] < px_per_filt:
+        num_h_fold = math.ceil(px_per_filt / array['h'])
         max_parallel_window = 1
     else:
         num_h_fold = 1
-        max_parallel_window = math.floor(array['h'] / px_per_conv_window)
+        max_parallel_window = math.floor(array['h'] / px_per_filt)
 
     reqd_cols = num_filt                    # Total number of cols to be mapped
     max_cols_per_v_fold = max_parallel_window * array['w']
@@ -56,34 +56,31 @@ def sram_traffic(
     #print("Vertical folds = " +str(num_v_fold))
    
     # These are the starting addresses of filter weights in the memory 
-    all_col_addr_list = []
-    for c in range(num_filt):
-        addr = (c) * r2c + base_addr['filt']
-        all_col_addr_list.append(addr)
+    all_col_addr_list = [(i * r2c + base_addr['filt']) for i in range(num_filt)]
 
     # These are the starting addresses of ifmap windows in the memory
-    hc = ifmap_w * num_channels
+    '''hc = ifmap['w'] * ch
     all_ifmap_base_addr = []
     for px in range(int(e2)):         #number of ofmap px in a ofmap channel
-        addr = (px / E_w) * strides * hc + (px%E_w) * strides
-        all_ifmap_base_addr.append(addr)
+        addr = (px / E_w) * stride * hc + (px % E_w) * stride
+        all_ifmap_base_addr.append(addr)'''
 
     for v in tqdm(range(int(num_v_fold))):
         #print("V fold id: " + str(v))
             
         # Take a slice of the starting addresses that are relevant for this v_fold 
-        cols_this_fold = min(remaining_cols, max_parallel_window * dimension_cols)
-        idx_start = v * dimension_cols
+        cols_this_fold = min(remaining_cols, max_parallel_window * array['w'])
+        idx_start = v * array['w']
         idx_end = idx_start + cols_this_fold
         col_addr_list = all_col_addr_list[idx_start:idx_end]
 
         if num_h_fold > 1 :
            
             rem_h = r2c                     # Tracks the elements processed within a conv filter 
-            next_ifmap_addr = ifmap_base    # Starts from the top left corner of the IFMAP matrix
+            #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
 
             for h in range(num_h_fold):
-                rows_this_fold = min(rem_h, dimension_rows) 
+                rows_this_fold = min(rem_h, array['h'])
                 #print("h fold id: " + str(h))
 
                 # Values returned
@@ -92,39 +89,39 @@ def sram_traffic(
                 cycles, col_addr_list   = gen_trace_filter_partial(
                                             col_addrs   = col_addr_list,
                                             cycle       = cycles,
-                                            num_rows    = dimension_rows,
+                                            num_rows    = array['h'],
                                             remaining   = rows_this_fold,
-                                            sram_read_trace_file = sram_read_trace_file
+                                            sram_read_trace_file = sram_trace_path['read']
                                             )
                 #print("Weights loaded by " + str(cycles) + " cycles")
                 data_out_cycles     = cycles    #Store this cycle for parallel readout
                 cycles_ifmap            = gen_trace_ifmap_partial(
                                             cycle = cycles,
-                                            num_rows = dimension_rows, num_cols = dimension_cols,
+                                            num_rows = array['h'], num_cols = array['w'],
                                             num_filters = num_filt,
                                             remaining = rem_h,
                                             remaining_filters = remaining_cols, 
-                                            ifmap_h = ifmap_h, ifmap_w = ifmap_w,
-                                            filt_h = filt_h, filt_w = filt_w,
-                                            num_channels = num_channels,
-                                            stride = strides, ifmap_base = ifmap_base,
-                                            sram_read_trace_file = sram_read_trace_file
+                                            ifmap_h = ifmap['h'], ifmap_w = ifmap['w'],
+                                            filt_h = filt['h'], filt_w = filt['w'],
+                                            num_channels = ch,
+                                            stride = stride, ifmap_base = base_addr['ifmap'],
+                                            sram_read_trace_file = sram_trace_path['read']
                                             )
                 cycles_ofmap        = gen_trace_ofmap(
                                             cycle = data_out_cycles,
-                                            num_rows = dimension_rows,
-                                            num_cols = dimension_cols,
-                                            ofmap_base = ofmap_base,
+                                            num_rows = array['h'],
+                                            num_cols = array['w'],
+                                            ofmap_base = base_addr['ofmap'],
                                             window_size= rows_this_fold,
                                             parallel_window =1,
                                             num_ofmap_px = int(e2),
-                                            filters_done = (v * dimension_cols),
+                                            filters_done = (v * array['w']),
                                             num_filter = num_filt,
-                                            sram_write_trace_file = sram_write_trace_file
+                                            sram_write_trace_file = sram_trace_path['write']
                                             ) 
 
                 #print("IFMAPS processed by " + str(cycles) + " cycles")
-                util_this_fold = (rows_this_fold * cols_this_fold) /(dimension_rows * dimension_cols)
+                util_this_fold = (rows_this_fold * cols_this_fold) / (array['h'] * array['w'])
 
                 rem_h -= rows_this_fold
                 cycles = max(cycles_ifmap, cycles_ofmap)
@@ -136,43 +133,43 @@ def sram_traffic(
 
         else:
             #filters_this_fold = min(remaining_cols, max_cols_per_v_fold)
-            filt_done = v * max_parallel_window * dimension_cols
+            filt_done = v * max_parallel_window * array['w']
             rem = num_filt - filt_done
 
-            parallel_window = math.ceil(rem / dimension_cols)
+            parallel_window = math.ceil(rem / array['w'])
             parallel_window = int(min(max_parallel_window, parallel_window))
         
             cycles_filter = gen_filter_trace(
                                 cycle = cycles,
-                                num_rows = dimension_rows, num_cols = dimension_cols,
-                                filt_h = filt_h, filt_w = filt_w, num_channels = num_channels,
+                                num_rows = array['h'], num_cols = array['w'],
+                                filt_h = filt['h'], filt_w = filt['w'], num_channels = ch,
                                 col_addr = col_addr_list, 
-                                parallel_window=parallel_window,
-                                filters_this_fold=cols_this_fold,
-                                sram_read_trace_file=sram_read_trace_file
+                                parallel_window = parallel_window,
+                                filters_this_fold = cols_this_fold,
+                                sram_read_trace_file = sram_trace_path['read']
                                 )
 
-            cycles_ifmap, rows_this_fold\
+            cycles_ifmap, rows_this_fold \
                             = gen_ifmap_trace(
                             cycle = cycles_filter,
-                            num_rows = dimension_rows, num_cols = dimension_cols,
-                            ifmap_h = ifmap_h, ifmap_w = ifmap_w,
-                            filt_h = filt_h, filt_w = filt_w,
-                            num_channels = num_channels, stride = strides,
+                            num_rows = array['h'], num_cols = array['w'],
+                            ifmap_h = ifmap['h'], ifmap_w = ifmap['w'],
+                            filt_h = filt['h'], filt_w = filt['w'],
+                            num_channels = ch, stride = stride,
                             parallel_window = parallel_window,
-                            sram_read_trace_file = sram_read_trace_file
+                            sram_read_trace_file = sram_trace_path['read']
                             )
 
             cycles_ofmap = gen_trace_ofmap(
                             cycle = cycles_filter,
-                            num_rows = dimension_rows, num_cols = dimension_cols,
-                            ofmap_base = ofmap_base, 
+                            num_rows = array['h'], num_cols = array['w'],
+                            ofmap_base = base_addr['ofmap'], 
                             parallel_window = parallel_window,
                             window_size = r2c,
                             num_ofmap_px = int(e2),
-                            filters_done = int(v * max_parallel_window * dimension_cols),
+                            filters_done = int(v * max_parallel_window * array['w']),
                             num_filter = num_filt,
-                            sram_write_trace_file = sram_write_trace_file
+                            sram_write_trace_file = sram_trace_path['write']
                             )
             cycles = max(cycles_ifmap, cycles_ofmap)
             del_cycl = cycles - prev_cycl
@@ -183,14 +180,14 @@ def sram_traffic(
             rem = cols_this_fold
             tmp_util = 0
             for _ in range(parallel_window):
-                col_used = min(rem, dimension_cols)
+                col_used = min(rem, array['w'])
                 row_used = r2c                      # Number of row used will always be in multiple of r2c,
                                                     # parallel window calc took care of this
                 tmp_util += row_used * col_used
                 rem -= col_used
 
             #util_this_fold = (rows_this_fold * cols_this_fold) /(dimension_rows * dimension_cols)
-            util_this_fold = tmp_util /(dimension_rows * dimension_cols)
+            util_this_fold = tmp_util / (array['h'] * array['w'])
             util += util_this_fold * del_cycl
             compute_cycles += del_cycl
             prev_cycl = cycles

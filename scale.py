@@ -13,7 +13,7 @@ class scale:
         self.config_path = c
 
         if n == '':
-            n = './networks/conv_nets/alexnet_part.csv'
+            n = './networks/conv_nets/alexnet.csv'
         self.net_path = n
     #
 
