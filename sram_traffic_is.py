@@ -2,26 +2,15 @@ import math
 from tqdm import tqdm
 
 
-def sram_traffic(
-            array={ 'h': 4, 'w': 4 },
-
-            ifmap={ 'h': 7, 'w': 7 }, filt={ 'h': 3, 'w': 3 }, ch=3,
-            num_filt=8,
-            stride=1,
-
-            base_addr={ 'ifmap': 0, 'filt': 1000000, 'ofmap': 2000000 },
-            sram_trace_path={
-                'read': "./sram_read.csv",
-                'write': "./sram_write.csv"
-            }
-        ):
-    dimension_rows, dimension_cols = array['h'], array['w']
-    ifmap_h, ifmap_w = ifmap['h'], ifmap['w']
-    filt_h, filt_w = filt['h'], filt['w']
-    num_channels = ch
-    strides = stride
-    ofmap_base, filt_base, ifmap_base = base_addr['ofmap'], base_addr['filt'], base_addr['ifmap']
-    sram_read_trace_file, sram_write_trace_file = sram_trace_path['read'], sram_trace_path['write']
+def sram_traffic(arch, layer, scheduler):
+    dimension_rows, dimension_cols = arch.array['h'], arch.array['w']
+    ifmap_h, ifmap_w = layer.ifmap['h'], layer.ifmap['w']
+    filt_h, filt_w = layer.filt['h'], layer.filt['w']
+    num_channels = layer.ch
+    num_filt = layer.num_filt
+    strides = layer.stride
+    ofmap_base, filt_base, ifmap_base = arch.base_addr['ofmap'], arch.base_addr['filt'], arch.base_addr['ifmap']
+    sram_read_trace_file, sram_write_trace_file = layer.trace_paths['sram']['read'], layer.trace_paths['sram']['write']
     ###
 
 

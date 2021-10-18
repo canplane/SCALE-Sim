@@ -3,7 +3,7 @@ import argparse
 import run_nets as r
 
 from arch import Architecture
-from scheduler import Scheduler, Foo_Error
+from scheduler import Scheduler, Preemption
 
 
 def _df_string(dataflow):
@@ -47,12 +47,14 @@ class Scale:
             task = self.scheduler.switch()
             if task == None:
                 break
+            ####
             try:
                 r.run_slot(self.arch, task, self.scheduler)
-            except Foo_Error:
-                print("잡았다 요놈!")
+            except Preemption:
+                print("Checkpointed!!")
+            ####
 
-            break
+            break ##
         
         print("************ SCALE SIM Run Complete ****************")
     #

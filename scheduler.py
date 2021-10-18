@@ -1,9 +1,10 @@
 from task import Task
 
 
-class Foo_Error(Exception):
-    def __init__(self, msg):
-        print(msg)
+class Preemption(Exception):
+    def __init__(self, msg=None):
+        if not msg == None:
+            print(msg)
 
 
 class Scheduler:
@@ -54,7 +55,7 @@ class Scheduler:
         pass
     #
     def refresh(self):
-        raise Foo_Error("뿌뿌뿡!!!")
+        raise Preemption()
     #
     def switch(self):
         return self.context_table[0]
