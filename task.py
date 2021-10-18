@@ -104,7 +104,7 @@ class Task:
             self.stride = stride
 
             ## Context
-            self.context_var = {}
+            self._context_var = {}
 
             self._set_output(out_parent_dir)
         #
@@ -127,10 +127,10 @@ class Task:
         
         def load_var(self, key, init_value):
             if key not in self.context_var:
-                self.context_var[key] = init_value
-            return self.context_var[key]
+                self._context_var[key] = init_value
+            return self._context_var[key]
         
         def store_var(self, key, value):
-            self.context_var[key] = value
+            self._context_var[key] = value
     #
 #
