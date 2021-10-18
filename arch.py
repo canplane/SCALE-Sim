@@ -5,18 +5,20 @@ import configparser as cp
 
 def _t_str():
     dt = datetime.datetime.now(datetime.timezone.utc)
-    return dt.astimezone().strftime('%Y%m%d_%H%M%S')
+    return dt.astimezone().strftime("%Y%m%d_%H%M%S")
 
 
 class Architecture:
-    def __init__(self):
-        if not os.path.exists('./outputs/'):
-            os.system('mkdir ./outputs')
-        self.out_dir = f"./output/{self.name}-{_t_str()}"
+    def __init__(self, cfg_path=None):
+        self._load_from_cfg(cfg_path)
+
+        if not os.path.exists("./outputs/"):
+            os.system("mkdir ./outputs")
+        self.out_dir = f"./outputs/{self.name}-{_t_str()}"
         os.system(f"mkdir {self.out_dir}")
     #
 
-    def load_from_cfg(self, path):
+    def _load_from_cfg(self, path):
         cfg = cp.ConfigParser()
         cfg.read(path)
         

@@ -7,11 +7,11 @@ import os
 import argparse
 
 
-def _df_string(df_str):
+def _df_string(dataflow):
     ret = 'Output Stationary'  # os
-    if df_str == 'ws':
+    if dataflow == 'ws':
         ret = 'Weight Stationary'
-    elif df_str == 'is':
+    elif dataflow == 'is':
         ret = 'Input Stationary'
     return ret
 
@@ -19,15 +19,12 @@ def _df_string(df_str):
 class Scale:
     def __init__(self, a='', t=''):
         if a == '':
-            a = './configs/google.cfg'
+            a = './configs/eyeriss.cfg'
         if t == '':
             t = './task_list.csv'
 
-        self.arch = Architecture()
-        self.arch.load_from_cfg(a)
-
-        self.scheduler = Scheduler(out_dir=self.arch.out_dir)
-        self.scheduler.load_from_csv(t)
+        self.arch = Architecture(cfg_path=a)
+        self.scheduler = Scheduler(out_dir=self.arch.out_dir, csv_path=t)
     #
 
     def run(self):
@@ -38,15 +35,16 @@ class Scale:
         print(f"SRAM IFMAP: \t{self.arch.sram_sz['ifmap']}")
         print(f"SRAM Filter: \t{self.arch.sram_sz['filt']}")
         print(f"SRAM OFMAP: \t{self.arch.sram_sz['ofmap']}")
-        print(f"Dataflow: \t{_df_string()}")
+        print(f"Dataflow: \t{_df_string(self.arch.dataflow)}")
         print("====================================================")
 
-        self.scheduler.init()
+        self.scheduler.start()
         while True:
-            task = self.scheduler.switch(self.context_table)
+            task = self.scheduler.switch()
             if task == None:
                 break
             r.run_slot(self.arch, task, self.scheduler)
+            break
         
         print("************ SCALE SIM Run Complete ****************")
     #

@@ -2,13 +2,14 @@ import os
 
 
 class Scheduler:
-    def __init__(self, out_dir=None):
-        self.table, self.next_task_id = {}, 0
+    def __init__(self, out_dir="./outputs", csv_path=None):
+        self.context_table, self.next_task_id = {}, 0
 
         self.out_dir = out_dir
+        if not csv_path == None:
+            self._load_from_csv(csv_path)
     #
-
-    def load_from_csv(self, path):
+    def _load_from_csv(self, path):
         with open(path, 'r') as f:
             first = True
             for row in f:
@@ -20,17 +21,16 @@ class Scheduler:
                     continue
 
                 self.add_task(
-                    net_name=elems[0],
-                    net_path=elems[1],
+                    net_name=elems[0].strip().strip("'\""),
+                    net_path=elems[1].strip().strip("'\""),
                     priority=int(elems[2]),
                     arrival_time=int(elems[3])
                 )
             #
         #
     #
-
     def add_task(self, net_name=None, net_path=None, priority=None, arrival_time=None):
-        self.table[self.next_task_id] = Task(
+        self.context_table[self.next_task_id] = Task(
                 task_id=self.next_task_id,
                 net_name=net_name,
                 net_path=net_path,
@@ -40,6 +40,16 @@ class Scheduler:
                 out_parent_dir=self.out_dir
             )
         self.next_task_id += 1
+    #
+
+    def start(self):
+        pass
+    #
+    def refresh(self):
+        pass
+    #
+    def switch(self):
+        return self.context_table[0]
     #
 #
 
@@ -106,7 +116,7 @@ class Task:
     #
 
     def _load_from_csv(self, path):
-        self.layers, self.current_layer_idx = [], -1
+        self.layers, self.current_layer_idx = [], 0
         with open(path, 'r') as f:
             first = True
             for row in f:
@@ -117,8 +127,8 @@ class Task:
                 if len(elems) < 9:      # Do not continue if incomplete line
                     continue
 
-                self.layers.append(self.Layer(self,
-                        layer_name=elems[0],
+                self.layers.append(self.Layer(
+                        layer_name=elems[0].strip().strip("'\""),
                         ifmap={ 'h': int(elems[1]), 'w': int(elems[2]) },
                         filt={ 'h': int(elems[3]), 'w': int(elems[4]) },
                         ch=int(elems[5]),
@@ -141,7 +151,7 @@ class Task:
                     
                     out_parent_dir=None,
                 ):
-            self.layer_name = layer_name
+            self.name = layer_name
             self.ifmap, self.filt, self.ch = ifmap, filt, ch
             self.num_filt = num_filt
             self.stride = stride

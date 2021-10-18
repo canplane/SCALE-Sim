@@ -33,21 +33,21 @@ def gen_all_traces(arch, layer, scheduler):
     dram.dram_trace_write(
         ofmap_sram_size=arch.sram_sz['ofmap'],
         data_width_bytes=word_sz_bytes,
-        sram_write_trace_file=layer.trace_path['sram']['write'],
-        dram_write_trace_file=layer.trace_path['dram']['ofmap']
+        sram_write_trace_file=layer.trace_paths['sram']['write'],
+        dram_write_trace_file=layer.trace_paths['dram']['ofmap']
     )
 
     print(f'Cycles for compute  : \t{sram_cycles} cycles')
     print(f'Average utilization : \t{util} %')
-    bw_numbers, detail_log = gen_bw_numbers(layer.trace_path)  #array_h, array_w)
+    bw_numbers, detail_log = gen_bw_numbers(layer.trace_paths)  #array_h, array_w)
 
     return bw_numbers, detail_log, sram_cycles, util
 #
 
-def gen_max_bw_numbers(trace_path=None):
+def gen_max_bw_numbers(trace_paths=None):
     ## dram_ifmap_trace_file
     max_dram_activation_bw, max_dram_act_clk = 0, ''
-    with open(trace_path['dram']['ifmap'], 'r') as f:
+    with open(trace_paths['dram']['ifmap'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2
@@ -57,7 +57,7 @@ def gen_max_bw_numbers(trace_path=None):
     
     ## dram_filter_trace_file
     max_dram_filter_bw, max_dram_filt_clk = 0, ''
-    with open(trace_path['dram']['filt'], 'r') as f:
+    with open(trace_paths['dram']['filt'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2
@@ -67,7 +67,7 @@ def gen_max_bw_numbers(trace_path=None):
 
     ## dram_ofmap_trace_file
     max_dram_ofmap_bw, max_dram_ofmap_clk = 0, ''
-    with open(trace_path['dram']['ofmap'], 'r') as f:
+    with open(trace_paths['dram']['ofmap'], 'r') as f:
         for row in f:
             clk = row.split(',')[0]
             num_bytes = len(row.split(',')) - 2
@@ -77,7 +77,7 @@ def gen_max_bw_numbers(trace_path=None):
     
     ## sram_write_trace_file
     max_sram_ofmap_bw = 0
-    with open(trace_path['sram']['write'], 'r') as f:
+    with open(trace_paths['sram']['write'], 'r') as f:
         for row in f:
             num_bytes = len(row.split(',')) - 2
 
@@ -86,7 +86,7 @@ def gen_max_bw_numbers(trace_path=None):
 
     ## sram_read_trace_file
     max_sram_read_bw = 0
-    with open(trace_path['sram']['read'], 'r') as f:
+    with open(trace_paths['sram']['read'], 'r') as f:
         for row in f:
             num_bytes = len(row.split(',')) - 2
 
@@ -102,7 +102,7 @@ def gen_max_bw_numbers(trace_path=None):
     return log
 #
 
-def gen_bw_numbers(trace_path=None
+def gen_bw_numbers(trace_paths=None
             #array_h, array_w): # These are needed for utilization calculation
         ):
     min_clk, max_clk = 100000, -1
@@ -110,7 +110,7 @@ def gen_bw_numbers(trace_path=None
 
     ## dram_ifmap_trace_file
     num_dram_activation_bytes = 0
-    with open(trace_path['dram']['ifmap'], 'r') as f:
+    with open(trace_paths['dram']['ifmap'], 'r') as f:
         first = True
         for row in f:
             num_dram_activation_bytes += len(row.split(',')) - 2
@@ -129,7 +129,7 @@ def gen_bw_numbers(trace_path=None
 
     ## dram_filter_trace_file
     num_dram_filter_bytes = 0
-    with open(trace_path['dram']['filt'], 'r') as f:
+    with open(trace_paths['dram']['filt'], 'r') as f:
         first = True
         for row in f:
             num_dram_filter_bytes += len(row.split(',')) - 2
@@ -148,7 +148,7 @@ def gen_bw_numbers(trace_path=None
     
     ## dram_ofmap_trace_file
     num_dram_ofmap_bytes = 0
-    with open(trace_path['dram']['ofmap'], 'r') as f:
+    with open(trace_paths['dram']['ofmap'], 'r') as f:
         first = True
         for row in f:
             num_dram_ofmap_bytes += len(row.split(',')) - 2
@@ -167,7 +167,7 @@ def gen_bw_numbers(trace_path=None
 
     ## sram_write_trace_file
     num_sram_ofmap_bytes = 0
-    with open(trace_path['sram']['write'], 'r') as f:
+    with open(trace_paths['sram']['write'], 'r') as f:
         first = True
         for row in f:
             num_sram_ofmap_bytes += len(row.split(',')) - 2
@@ -186,7 +186,7 @@ def gen_bw_numbers(trace_path=None
     ## sram_read_trace_file
     num_sram_read_bytes = 0
     #total_util = 0
-    with open(trace_path['sram']['read'], 'r') as f:
+    with open(trace_paths['sram']['read'], 'r') as f:
         first = True
         for row in f:
             #num_sram_read_bytes += len(row.split(',')) - 2

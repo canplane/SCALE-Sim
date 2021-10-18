@@ -5,8 +5,11 @@ def run_slot(arch, task, scheduler):
     for i in range(task.current_layer_idx, len(task.layers)):
         layer = task.layers[i]
 
+        print("")
+        print("Commencing run for " + layer.name)
+
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)
-        max_bw_log = tg.gen_max_bw_numbers(trace_path=layer.trace_path)
+        max_bw_log = tg.gen_max_bw_numbers(trace_paths=layer.trace_paths)
         
         with open(task.log_paths['avg_bw'], 'a') as f:
             f.write(f"{layer.name},\t{arch.sram_sz['ifmap']},\t{arch.sram_sz['filt']},\t{arch.sram_sz['ofmap']},\t" + avg_bw_log + '\n')
