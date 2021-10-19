@@ -1,5 +1,6 @@
 *.log
 original_repo
-outputs/
 
 __pycache__
+
+outputs/

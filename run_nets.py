@@ -11,7 +11,7 @@ def run_slot(arch, task, scheduler):
     while task.current_layer_idx < len(task.layers):
         layer = task.layers[task.current_layer_idx]
 
-        print(f"Commencing run for {set_color(layer.name, key=task.color)}")
+        print(f"Commencing run for {set_color(layer.name, key=task.color)} ({task.current_layer_idx + 1}/{len(task.layers)})")
 
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)
         max_bw_log = tg.gen_max_bw_numbers(trace_paths=layer.trace_paths)

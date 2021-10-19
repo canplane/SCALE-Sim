@@ -6,16 +6,14 @@ from scale_error import *
 class Task:
     def __init__(self, 
                 parent=None,
-                
-                task_id=None,
-                net_name=None, net_path=None,
+                task_id=None, net_name=None, net_path=None,
+
                 priority=None,
                 arrival_time=None,
 
                 color=None
             ):
         self.parent = parent    # scheduler
-
         self.name = net_name
         
         ## Context table
@@ -96,7 +94,7 @@ class Task:
 
                 self.layers.append(self.Layer(
                         parent=self,
-
+                        nth_layer=len(self.layers),
                         layer_name=elems[0].strip().strip("'\""),
                         ifmap={ 'h': int(elems[1]), 'w': int(elems[2]) },
                         filt={ 'h': int(elems[3]), 'w': int(elems[4]) },
@@ -112,15 +110,16 @@ class Task:
     class Layer:
         def __init__(self,
                     parent=None,
+                    nth_layer=None, layer_name=None,
 
-                    layer_name=None, 
                     ifmap=None, filt=None, ch=None,
                     num_filt=None,
                     stride=None,
                 ):
             self.parent = parent    # task
-
+            #self.nth_layer = nth_layer
             self.name = layer_name
+
             self.ifmap, self.filt, self.ch = ifmap, filt, ch
             self.num_filt = num_filt
             self.stride = stride

@@ -110,11 +110,11 @@ class Scheduler:
         for task_id in self.ready_q:
             self.tasks[task_id].execution_time['waited'] += diff_cycles
         
-        ## Debug
+        ## For debug
         #print(f"epoch time: {self.epoch_time}")
         #for task_id, task in self.tasks.items():
-        #    print(f"{task_id}: execution time: {task.execution_time['executed']} + {task.execution_time['waited']} = {task.execution_time['executed'] + task.execution_time['waited']}")
-        #print(f"executed timeline: {running_task.execution_timeline}")
+        #    print(f"[{task_id}] execution time: {task.execution_time['executed']} + {task.execution_time['waited']} = {task.execution_time['executed'] + task.execution_time['waited']}")
+        #print(f"[{self.running_task_id}] executed timeline (tail): {running_task.execution_timeline[-3:]}")
     #
 
     def refresh(self, preempt=True):
