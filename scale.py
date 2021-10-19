@@ -5,8 +5,6 @@ import run_nets as r
 from arch import Architecture
 from scheduler import Scheduler, Preemption
 
-import time
-
 
 def _df_string(dataflow):
     ret = 'Output Stationary'  # os
@@ -53,7 +51,7 @@ class Scale:
             try:
                 r.run_slot(self.arch, task, self.scheduler)
             except Preemption:
-                print("Checkpointed!!")
+                print(">> Checkpointed!!")
             ####
             
         

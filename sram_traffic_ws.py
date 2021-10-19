@@ -1,5 +1,7 @@
-import math 
+import math
 from tqdm import tqdm
+
+from scale_error import *
 
 
 def sram_traffic(arch, layer, scheduler):
@@ -30,87 +32,49 @@ def sram_traffic(arch, layer, scheduler):
     max_cols_per_v_fold = max_parallel_window * arch.array['w']
     num_v_fold = math.ceil(reqd_cols / max_cols_per_v_fold)
 
-    ############################# 여기까지 봄
-
     # Variables for utilization calculation
     util = layer.load_var('util', 0)
     compute_cycles = layer.load_var('compute_cycles', 0)
     
-    remaining_cols = layer.load_var('remaining_cols', reqd_cols)
     cycles = layer.load_var('cycles', 0)
     prev_cycl = cycles
 
-    start_v = layer.load_var('v', 0)
-    start_h = layer.load_var('h', 0)
-    print(f"{cycles} : {start_v} {start_h}")
-
-    #print("Vertical folds = " +str(num_v_fold))
+    #print("Vertical folds = {num_v_fold}")
    
     # These are the starting addresses of filter weights in the memory 
     all_col_addr_list = [(i * r2c + arch.base_addr['filt']) for i in range(layer.num_filt)]
 
     # These are the starting addresses of ifmap windows in the memory
-    '''hc = ifmap['w'] * ch
+    '''hc = layer.ifmap['w'] * layer.ch
     all_ifmap_base_addr = []
     for px in range(int(e2)):         #number of ofmap px in a ofmap channel
-        addr = (px / E_w) * stride * hc + (px % E_w) * stride
+        addr = (px / E_w) * layer.stride * hc + (px % E_w) * layer.stride
         all_ifmap_base_addr.append(addr)'''
 
-    print(num_h_fold, num_v_fold)
-    pbar_h = tqdm(total=num_h_fold, initial=start_h)
-    pbar_v = tqdm(total=num_v_fold, initial=start_v)
     try:
-        first_v = True
-        for v in range(start_v, num_v_fold):
-            ####
-            if not first_v:
-                layer.store_var('v', v)
-                layer.store_var('h', 0)
-                layer.store_var('cycles', cycles)
-                layer.store_var('util', util)
-                layer.store_var('compute_cycles', compute_cycles)
-                layer.store_var('remaining_cols', remaining_cols)
+        pbar_v = tqdm(total=num_v_fold, desc="v_fold"); pbar_h = tqdm(total=num_h_fold, desc="h_fold")
 
-                pbar_v.update(1)
-                pbar_h.reset()
-            
-                #scheduler.refresh()
-            else:
-                first_v = False
-            ####
+        rem_c = layer.load_var('rem_c', reqd_cols)
+        v = layer.load_var('v', 0); pbar_v.update(v)
+        while v < num_v_fold:
+            pbar_h.reset()
 
-            #print("V fold id: " + str(v))
+            #print(f"V fold id: {v}")
                 
             # Take a slice of the starting addresses that are relevant for this v_fold 
-            cols_this_fold = min(remaining_cols, max_parallel_window * arch.array['w'])
+            cols_this_fold = min(rem_c, max_parallel_window * arch.array['w'])
             idx_start = v * arch.array['w']
             idx_end = idx_start + cols_this_fold
             col_addr_list = all_col_addr_list[idx_start:idx_end]
-            
+
             if num_h_fold > 1:
-                rem_h = layer.load_var('rem_h', r2c)                     # Tracks the elements processed within a conv filter 
-                #next_ifmap_addr = base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
-
-                first_h = True
-                for h in range(start_h, num_h_fold):
-                    ####
-                    if not first_h:
-                        layer.store_var('v', v)
-                        layer.store_var('h', h)
-                        layer.store_var('cycles', cycles)
-                        layer.store_var('util', util)
-                        layer.store_var('compute_cycles', compute_cycles)
-                        layer.store_var('rem_h', rem_h)
-
-                        pbar_h.update(1)
-
-                        #scheduler.refresh()
-                    else:
-                        first_h = False
-                    ####
-
+                #next_ifmap_addr = arch.base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
+                
+                rem_h = layer.load_var('rem_h', r2c)                    # Tracks the elements processed within a conv filter 
+                h = layer.load_var('h', 0); pbar_h.update(h)
+                while h < num_h_fold:
                     rows_this_fold = min(rem_h, arch.array['h'])
-                    #print("h fold id: " + str(h))
+                    #print(f"h fold id: {h}")
 
                     # Values returned
                     # cycles        -> Cycle count for the next operation ie. cycles elapsed + 1
@@ -122,14 +86,14 @@ def sram_traffic(arch, layer, scheduler):
                             remaining   = rows_this_fold,
                             sram_read_trace_file = layer.trace_paths['sram']['read']
                         )
-                    #print("Weights loaded by " + str(cycles) + " cycles")
+                    #print(f"Weights loaded by {cycles} cycles")
                     data_out_cycles = cycles    #Store this cycle for parallel readout
                     cycles_ifmap = gen_trace_ifmap_partial(
                             cycle = cycles,
                             num_rows = arch.array['h'], num_cols = arch.array['w'],
                             num_filters = layer.num_filt,
                             remaining = rem_h,
-                            remaining_filters = remaining_cols, 
+                            remaining_filters = rem_c, 
                             ifmap_h = layer.ifmap['h'], ifmap_w = layer.ifmap['w'],
                             filt_h = layer.filt['h'], filt_w = layer.filt['w'],
                             num_channels = layer.ch,
@@ -149,7 +113,7 @@ def sram_traffic(arch, layer, scheduler):
                             sram_write_trace_file = layer.trace_paths['sram']['write']
                         ) 
 
-                    #print("IFMAPS processed by " + str(cycles) + " cycles")
+                    #print(f"IFMAPS processed by {cycles} cycles")
                     util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
 
                     rem_h -= rows_this_fold
@@ -159,10 +123,20 @@ def sram_traffic(arch, layer, scheduler):
                     util += util_this_fold * del_cycl
                     compute_cycles += del_cycl
                     prev_cycl = cycles
+
+                    ####
+                    h += 1; pbar_h.update(1)
+
+                    if h < num_h_fold:
+                        layer.store_var({ 'h': h, 'rem_h': rem_h })
+                        layer.store_var({ 'cycles': cycles, 'util': util, 'compute_cycles': compute_cycles })
+                        scheduler.refresh()
+                    ####
                 #
+                layer.clear_var([ 'h', 'rem_h' ])
             #
             else:
-                #filters_this_fold = min(remaining_cols, max_cols_per_v_fold)
+                #filters_this_fold = min(rem_c, max_cols_per_v_fold)
                 filt_done = v * max_parallel_window * arch.array['w']
                 rem = layer.num_filt - filt_done
 
@@ -215,22 +189,42 @@ def sram_traffic(arch, layer, scheduler):
                     tmp_util += row_used * col_used
                     rem -= col_used
 
-                #util_this_fold = (rows_this_fold * cols_this_fold) /(dimension_rows * dimension_cols)
+                #util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
                 util_this_fold = tmp_util / (arch.array['h'] * arch.array['w'])
                 util += util_this_fold * del_cycl
                 compute_cycles += del_cycl
                 prev_cycl = cycles
-            #
-            remaining_cols -= cols_this_fold
-        #
-    finally:
-        pbar_h.close()
-        pbar_v.close()
 
-    final = str(cycles)
+                ####
+                pbar_h.update(1)
+                ####
+            #
+            rem_c -= cols_this_fold
+
+            ####
+            v += 1; pbar_v.update(1)
+
+            if v < num_v_fold:
+                layer.store_var({ 'v': v, 'rem_c': rem_c })
+                layer.store_var({ 'cycles': cycles, 'util': util, 'compute_cycles': compute_cycles })
+                scheduler.refresh()
+            ####
+        #
+        layer.clear_var([ 'v', 'rem_c' ])
+    finally:
+        pbar_v.close(); pbar_h.close()
+    
+    final = cycles
     final_util = (util / compute_cycles) * 100
-    #print("Compute finished at: " + str(final) + " cycles")
-    return (final, final_util)
+
+    ####
+    layer.clear_var([ 'cycles', 'util', 'compute_cycles' ])
+    if not layer.var_is_empty():
+        raise SCALE_Error("Variables remained in completed layer")
+    ####
+    
+    #print(f"Compute finished at: {final} cycles")
+    return final, final_util
 
 
 def gen_filter_trace(

@@ -17,7 +17,7 @@ class Task:
         }
         self.priority = priority
         self.token = None
-        self.state = "NEW"      # NEW, READY, RUN, END
+        self.state = 'NEW'      # NEW, READY, RUN, END
 
         self.arrival_time = arrival_time
 
@@ -104,7 +104,7 @@ class Task:
             self.stride = stride
 
             ## Context
-            self._context_var = {}
+            self._context_vars = {}
 
             self._set_output(out_parent_dir)
         #
@@ -125,12 +125,22 @@ class Task:
                 }
             }
         
-        def load_var(self, key, init_value):
-            if key not in self._context_var:
-                self._context_var[key] = init_value
-            return self._context_var[key]
-        
-        def store_var(self, key, value):
-            self._context_var[key] = value
+
+        # Context variables
+        def load_var(self, key: str, init_value):
+            if key not in self._context_vars:
+                self._context_vars[key] = init_value
+            return self._context_vars[key]
+
+        def store_var(self, dic: dict):
+            for k in dic:
+                self._context_vars[k] = dic[k]
+
+        def clear_var(self, li: list):
+            for e in li:
+                del self._context_vars[e]
+
+        def var_is_empty(self) -> bool:
+            return not bool(self._context_vars)
     #
 #

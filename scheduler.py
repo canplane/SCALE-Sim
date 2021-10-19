@@ -2,9 +2,7 @@ from task import Task
 
 
 class Preemption(Exception):
-    def __init__(self, msg=None):
-        if not msg == None:
-            print(msg)
+    pass
 
 
 class Scheduler:
@@ -49,6 +47,7 @@ class Scheduler:
         self.next_task_id += 1
     #
 
+    ## Scheduling
     def start(self):
         pass
     #

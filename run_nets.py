@@ -6,19 +6,10 @@ def run_slot(arch, task, scheduler):
     print(f"Network: \t{task.name}")
     print("----------------------------------------------------")
     
-    first = True
     for i in range(task.current_layer_idx, len(task.layers)):
-        ####
-        if not first:
-            #scheduler.refresh()
-            pass
-        else:
-            first = False
-        ####
-
         layer = task.layers[i]
 
-        print("Commencing run for " + layer.name)
+        print(f"Commencing run for {layer.name}")
 
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)
         max_bw_log = tg.gen_max_bw_numbers(trace_paths=layer.trace_paths)
@@ -33,7 +24,11 @@ def run_slot(arch, task, scheduler):
             f.write(f"{layer.name},\t{sram_cycles},\t{util}," + '\n')
 
         print("")
+
+        ####
+        if i + 1 < len(task.layers):
+            scheduler.refresh()
+        ####
     #
-    
     task.state = 'END'
 #
