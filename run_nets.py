@@ -11,6 +11,7 @@ def run_slot(arch, task, scheduler):
         ####
         if not first:
             #scheduler.refresh()
+            pass
         else:
             first = False
         ####
