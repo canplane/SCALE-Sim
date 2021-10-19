@@ -10,7 +10,7 @@ def run_slot(arch, task, scheduler):
     for i in range(task.current_layer_idx, len(task.layers)):
         ####
         if not first:
-            scheduler.refresh()
+            #scheduler.refresh()
         else:
             first = False
         ####

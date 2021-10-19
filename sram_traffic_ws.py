@@ -74,7 +74,7 @@ def sram_traffic(arch, layer, scheduler):
                 pbar_v.update(1)
                 pbar_h.reset()
             
-                scheduler.refresh()
+                #scheduler.refresh()
             else:
                 first_v = False
             ####
@@ -104,7 +104,7 @@ def sram_traffic(arch, layer, scheduler):
 
                         pbar_h.update(1)
 
-                        scheduler.refresh()
+                        #scheduler.refresh()
                     else:
                         first_h = False
                     ####
