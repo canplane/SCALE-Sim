@@ -1,5 +1,7 @@
 import os
 
+from scale_error import *
+
 
 class Task:
     def __init__(self, 
@@ -17,10 +19,11 @@ class Task:
         self.name = net_name
         
         ## Context table
-        self.task_id = task_id
+        #self.task_id = task_id
         self.execution_time = {
             'executed': 0,
             'waited': 0,
+
             'estimated': None
         }
         self.priority = priority
@@ -28,6 +31,13 @@ class Task:
         self.state = None       # NEW, READY, RUN, END
 
         self.arrival_time = arrival_time
+
+        ## Layers
+        self.layers, self.current_layer_idx = [], 0
+
+        ## Cycle time
+        self.cycles_per_layer = []
+        self.execution_timeline = []
 
         ## Misc
         self.color = color
@@ -38,7 +48,7 @@ class Task:
 
     def _set_output(self):
         self.out_dir = f"{self.parent.out_dir}/{self.name}"
-        os.mkdir(self.out_dir)
+        os.mkdir(self.out_dir)  # 에러 나면 task list 파일에서 task 이름 중복되었는지 살필 것
 
         self.log_paths = {
             'avg_bw': f"{self.out_dir}/avg_bw.csv",
@@ -74,7 +84,6 @@ class Task:
     #
 
     def _load_from_csv(self, path):
-        self.layers, self.current_layer_idx = [], 0
         with open(path, 'r') as f:
             first = True
             for row in f:
@@ -124,7 +133,7 @@ class Task:
 
         def _set_output(self):
             self.out_dir = f"{self.parent.out_dir}/{self.name}"
-            os.mkdir(self.out_dir)
+            os.mkdir(self.out_dir)  # 에러 나면 network 파일에서 레이어 이름 중복되었는지 살필 것
 
             self.trace_paths = {
                 'sram': {
@@ -140,9 +149,12 @@ class Task:
         
 
         # Context variables
-        def load_var(self, key: str, init_value):
+        def load_var(self, key: str, init=None):
             if key not in self._context_vars:
-                self._context_vars[key] = init_value
+                if init == None:
+                    raise SCALE_Error("Variable not exists and initial value is not set")
+
+                self._context_vars[key] = init
             return self._context_vars[key]
 
         def store_var(self, dic: dict):
@@ -153,7 +165,9 @@ class Task:
             for e in li:
                 del self._context_vars[e]
 
-        def var_is_empty(self) -> bool:
+        def is_empty_var(self, key: str) -> bool:
+            return key not in self._context_vars
+        def is_no_vars(self) -> bool:
             return not bool(self._context_vars)
     #
 #

@@ -50,9 +50,10 @@ class Scale:
             try:
                 r.run_slot(self.arch, task, self.scheduler)
             except Preemption:
-                print(set_style(set_color(" PREEMPTED!! ", key='RED'), key='INVERSE'))
+                print(set_style(set_color(" PREEMPTED!! ", key='RED'), key='INVERSE'))                
             ####
         
+        print("")
         print("************ SCALE SIM Run Complete ****************")
     #
 #
@@ -66,7 +67,7 @@ if __name__ == '__main__':
             )
     parser.add_argument('-t', metavar='filename', type=str,
                 default='',
-                help='path to the task config file (.csv)'
+                help='path to the task list file (.csv)'
             )
     
     args = parser.parse_args()

@@ -1,6 +1,6 @@
 Network, Network path, Priority, Arrival time,
 
 "AlexNet (Part) 1", "./networks/conv_nets/alexnet_part.csv", 0, 0,
-"AlexNet (Part) 2", "./networks/conv_nets/alexnet_part.csv", 0, 0,
-"AlexNet (Part) 3", "./networks/conv_nets/alexnet_part.csv", 0, 0,
+"AlexNet (Part) 2", "./networks/conv_nets/_alexnet_part_1.csv", 0, 0,
+"AlexNet (Part) 3", "./networks/conv_nets/_alexnet_part_2.csv", 0, 0,
 "AlexNet (Part) 4", "./networks/conv_nets/alexnet_part.csv", 0, 0,

@@ -6,6 +6,8 @@ from misc import set_style, set_color
 
 
 def sram_traffic(arch, layer, scheduler):
+    task = layer.parent
+
     # Dimensions of output feature map channel
     E_h = math.floor((layer.ifmap['h'] - layer.filt['h'] + layer.stride) / layer.stride)
     E_w = math.floor((layer.ifmap['w'] - layer.filt['w'] + layer.stride) / layer.stride)
@@ -34,10 +36,10 @@ def sram_traffic(arch, layer, scheduler):
     num_v_fold = math.ceil(reqd_cols / max_cols_per_v_fold)
 
     # Variables for utilization calculation
-    util = layer.load_var('util', 0)
-    compute_cycles = layer.load_var('compute_cycles', 0)
+    util = layer.load_var('util', init=0)
+    compute_cycles = layer.load_var('compute_cycles', init=0)
     
-    cycles = layer.load_var('cycles', 0)
+    cycles = layer.load_var('cycles', init=0)
     prev_cycl = cycles
 
     #print("Vertical folds = {num_v_fold}")
@@ -53,11 +55,11 @@ def sram_traffic(arch, layer, scheduler):
         all_ifmap_base_addr.append(addr)'''
 
     try:
-        pbar_v = tqdm(total=num_v_fold, desc="v_fold", bar_format="{l_bar}" + set_color("{bar}", key=layer.parent.color) + "{r_bar}")
-        pbar_h = tqdm(total=num_h_fold, desc="h_fold", bar_format="{l_bar}" + set_color("{bar}", key=layer.parent.color) + "{r_bar}")
+        pbar_v = tqdm(total=num_v_fold, desc="v_fold", bar_format="{l_bar}" + set_color("{bar}", key=task.color) + "{r_bar}")
+        pbar_h = tqdm(total=num_h_fold, desc="h_fold", bar_format="{l_bar}" + set_color("{bar}", key=task.color) + "{r_bar}")
 
-        rem_c = layer.load_var('rem_c', reqd_cols)
-        v = layer.load_var('v', 0); pbar_v.update(v)
+        rem_c = layer.load_var('rem_c', init=reqd_cols)
+        v = layer.load_var('v', init=0); pbar_v.update(v)
         while v < num_v_fold:
             pbar_h.reset()
 
@@ -72,8 +74,8 @@ def sram_traffic(arch, layer, scheduler):
             if num_h_fold > 1:
                 #next_ifmap_addr = arch.base_addr['ifmap']    # Starts from the top left corner of the IFMAP matrix
                 
-                rem_h = layer.load_var('rem_h', r2c)                    # Tracks the elements processed within a conv filter 
-                h = layer.load_var('h', 0); pbar_h.update(h)
+                rem_h = layer.load_var('rem_h', init=r2c)                    # Tracks the elements processed within a conv filter 
+                h = layer.load_var('h', init=0); pbar_h.update(h)
                 while h < num_h_fold:
                     rows_this_fold = min(rem_h, arch.array['h'])
                     #print(f"h fold id: {h}")
@@ -218,8 +220,9 @@ def sram_traffic(arch, layer, scheduler):
     final_util = (util / compute_cycles) * 100
 
     ####
+    task.cycles_per_layer.append(cycles)
     layer.clear_var([ 'cycles', 'util', 'compute_cycles' ])
-    if not layer.var_is_empty():
+    if not layer.is_no_vars():
         raise SCALE_Error("Variables remained in completed layer")
     ####
     

@@ -29,9 +29,9 @@ def run_slot(arch, task, scheduler):
         task.current_layer_idx += 1
         if task.current_layer_idx < len(task.layers):
             scheduler.refresh()
+            print("")
         ####
-
-        print("")
     #
     task.state = 'END'
+    print(set_style(" TASK ENDED ", key='INVERSE'))
 #
