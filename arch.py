@@ -13,12 +13,12 @@ class Architecture:
         self._load_from_cfg(cfg_path)
 
         if not os.path.exists("./outputs/"):
-            os.system("mkdir ./outputs")
+            os.mkdir("./outputs")
         ####
         os.system("rm -rf ./outputs/*")
         ####
         self.out_dir = f"./outputs/{self.name}-{_t_str()}"
-        os.system(f"mkdir {self.out_dir}")
+        os.mkdir(self.out_dir)
     #
 
     def _load_from_cfg(self, path):

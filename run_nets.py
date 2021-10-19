@@ -1,15 +1,17 @@
 import trace_gen_wrapper as tg
 
+from misc import set_style, set_color
+
 
 def run_slot(arch, task, scheduler):
     print("")
-    print(f"Network: \t{task.name}")
+    print(f"Network: \t{set_style(set_color(task.name, key=task.color), key='BOLD')}")
     print("----------------------------------------------------")
     
-    for i in range(task.current_layer_idx, len(task.layers)):
-        layer = task.layers[i]
+    while task.current_layer_idx < len(task.layers):
+        layer = task.layers[task.current_layer_idx]
 
-        print(f"Commencing run for {layer.name}")
+        print(f"Commencing run for {set_color(layer.name, key=task.color)}")
 
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)
         max_bw_log = tg.gen_max_bw_numbers(trace_paths=layer.trace_paths)
@@ -23,12 +25,13 @@ def run_slot(arch, task, scheduler):
         with open(task.log_paths['cycles'], 'a') as f:
             f.write(f"{layer.name},\t{sram_cycles},\t{util}," + '\n')
 
-        print("")
-
         ####
-        if i + 1 < len(task.layers):
+        task.current_layer_idx += 1
+        if task.current_layer_idx < len(task.layers):
             scheduler.refresh()
         ####
+
+        print("")
     #
     task.state = 'END'
 #

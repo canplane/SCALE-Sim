@@ -2,6 +2,7 @@ import math
 from tqdm import tqdm
 
 from scale_error import *
+from misc import set_style, set_color
 
 
 def sram_traffic(arch, layer, scheduler):
@@ -52,7 +53,8 @@ def sram_traffic(arch, layer, scheduler):
         all_ifmap_base_addr.append(addr)'''
 
     try:
-        pbar_v = tqdm(total=num_v_fold, desc="v_fold"); pbar_h = tqdm(total=num_h_fold, desc="h_fold")
+        pbar_v = tqdm(total=num_v_fold, desc="v_fold", bar_format="{l_bar}" + set_color("{bar}", key=layer.parent.color) + "{r_bar}")
+        pbar_h = tqdm(total=num_h_fold, desc="h_fold", bar_format="{l_bar}" + set_color("{bar}", key=layer.parent.color) + "{r_bar}")
 
         rem_c = layer.load_var('rem_c', reqd_cols)
         v = layer.load_var('v', 0); pbar_v.update(v)
@@ -126,7 +128,6 @@ def sram_traffic(arch, layer, scheduler):
 
                     ####
                     h += 1; pbar_h.update(1)
-
                     if h < num_h_fold:
                         layer.store_var({ 'h': h, 'rem_h': rem_h })
                         layer.store_var({ 'cycles': cycles, 'util': util, 'compute_cycles': compute_cycles })
@@ -203,7 +204,6 @@ def sram_traffic(arch, layer, scheduler):
 
             ####
             v += 1; pbar_v.update(1)
-
             if v < num_v_fold:
                 layer.store_var({ 'v': v, 'rem_c': rem_c })
                 layer.store_var({ 'cycles': cycles, 'util': util, 'compute_cycles': compute_cycles })

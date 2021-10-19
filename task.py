@@ -3,9 +3,17 @@ import os
 
 class Task:
     def __init__(self, 
-                task_id=None, net_name=None, net_path=None, priority=None, arrival_time=None,
-                out_parent_dir=None,
+                parent=None,
+                
+                task_id=None,
+                net_name=None, net_path=None,
+                priority=None,
+                arrival_time=None,
+
+                color=None
             ):
+        self.parent = parent    # scheduler
+
         self.name = net_name
         
         ## Context table
@@ -17,17 +25,20 @@ class Task:
         }
         self.priority = priority
         self.token = None
-        self.state = 'NEW'      # NEW, READY, RUN, END
+        self.state = None       # NEW, READY, RUN, END
 
         self.arrival_time = arrival_time
 
-        self._set_output(out_parent_dir)
+        ## Misc
+        self.color = color
+
+        self._set_output()
         self._load_from_csv(net_path)
     #
 
-    def _set_output(self, parent_dir):
-        self.out_dir = f"{parent_dir}/{self.name}"
-        os.system(f"mkdir {self.out_dir}")
+    def _set_output(self):
+        self.out_dir = f"{self.parent.out_dir}/{self.name}"
+        os.mkdir(self.out_dir)
 
         self.log_paths = {
             'avg_bw': f"{self.out_dir}/avg_bw.csv",
@@ -75,14 +86,14 @@ class Task:
                     continue
 
                 self.layers.append(self.Layer(
+                        parent=self,
+
                         layer_name=elems[0].strip().strip("'\""),
                         ifmap={ 'h': int(elems[1]), 'w': int(elems[2]) },
                         filt={ 'h': int(elems[3]), 'w': int(elems[4]) },
                         ch=int(elems[5]),
                         num_filt=int(elems[6]),
                         stride=int(elems[7]),
-
-                        out_parent_dir=self.out_dir
                     ))
             #
         #
@@ -91,13 +102,15 @@ class Task:
     
     class Layer:
         def __init__(self,
+                    parent=None,
+
                     layer_name=None, 
                     ifmap=None, filt=None, ch=None,
                     num_filt=None,
                     stride=None,
-                    
-                    out_parent_dir=None,
                 ):
+            self.parent = parent    # task
+
             self.name = layer_name
             self.ifmap, self.filt, self.ch = ifmap, filt, ch
             self.num_filt = num_filt
@@ -106,12 +119,12 @@ class Task:
             ## Context
             self._context_vars = {}
 
-            self._set_output(out_parent_dir)
+            self._set_output()
         #
 
-        def _set_output(self, parent_dir):
-            self.out_dir = f"{parent_dir}/{self.name}"
-            os.system(f"mkdir {self.out_dir}")
+        def _set_output(self):
+            self.out_dir = f"{self.parent.out_dir}/{self.name}"
+            os.mkdir(self.out_dir)
 
             self.trace_paths = {
                 'sram': {

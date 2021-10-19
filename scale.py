@@ -5,6 +5,8 @@ import run_nets as r
 from arch import Architecture
 from scheduler import Scheduler, Preemption
 
+from misc import set_style, set_color
+
 
 def _df_string(dataflow):
     ret = 'Output Stationary'  # os
@@ -16,9 +18,6 @@ def _df_string(dataflow):
 
 
 class Scale:
-    arch: Architecture = None
-    scheduler: Scheduler = None
-
     def __init__(self, a='', t=''):
         if a == '':
             a = './architectures/eyeriss.cfg'
@@ -51,9 +50,8 @@ class Scale:
             try:
                 r.run_slot(self.arch, task, self.scheduler)
             except Preemption:
-                print(">> Checkpointed!!")
+                print(set_style(set_color(" PREEMPTED!! ", key='RED'), key='INVERSE'))
             ####
-            
         
         print("************ SCALE SIM Run Complete ****************")
     #
