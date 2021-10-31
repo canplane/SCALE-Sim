@@ -3,7 +3,7 @@ import argparse
 import run_nets as r
 
 from arch import Architecture
-from scheduler import Scheduler, Preemption
+from scheduler.scheduler import Scheduler, Preemption
 
 from misc import set_style, set_color
 

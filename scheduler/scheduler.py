@@ -1,5 +1,6 @@
 import random
 
+from scheduler.ready_queue import ReadyQueue
 from task import Task
 
 
@@ -66,21 +67,21 @@ class Scheduler:
     def start(self):
         self.epoch_time = 0     # 단위: cycle
 
-        self.ready_q = []
+        self.ready_q = ReadyQueue('PREMA')
         self.running_task_id = None
         self.candidate_task_id = None
 
         for task_id, task in self.tasks.items():
             if task.arrival_time <= self.epoch_time:
                 task.state = 'READY'
-                self.ready_q.append(task_id)
+                self.ready_q.push(task_id)
             else:
                 task.state = 'NEW'
         
         ## task selecting algorithm
         ######## 이 부분만 추가하면 됨
         try:
-            self.candidate_task_id = self.ready_q.pop(0)
+            self.candidate_task_id = self.ready_q.pop()
         except IndexError:
             self.candidate_task_id = None
         ########
@@ -107,7 +108,7 @@ class Scheduler:
         running_task.execution_timeline.append([ self.epoch_time - diff_cycles, self.epoch_time ])
 
         running_task.execution_time['executed'] += diff_cycles
-        for task_id in self.ready_q:
+        for task_id in self.ready_q.get_list():
             self.tasks[task_id].execution_time['waited'] += diff_cycles
         
         ## For debug
@@ -124,12 +125,12 @@ class Scheduler:
         for task_id, task in self.tasks.items():
             if task.state == 'NEW' and task.arrival_time <= self.epoch_time:
                 task.state = 'READY'
-                self.ready_q.append(task_id)
+                self.ready_q.push(task_id)
 
         ## task selecting algorithm
         ######## 이 부분만 추가하면 됨
         try:
-            self.candidate_task_id = self.ready_q.pop(0)
+            self.candidate_task_id = self.ready_q.pop()
         except IndexError:
             self.candidate_task_id = None
         ########
@@ -144,7 +145,7 @@ class Scheduler:
             preempted_task = self.tasks[self.running_task_id]
             if preempted_task.state == 'RUN':
                 preempted_task.state = 'READY'
-                self.ready_q.append(self.running_task_id)
+                self.ready_q.push(self.running_task_id)
             else:   # END
                 self.refresh(preempt=False)
         
@@ -152,9 +153,13 @@ class Scheduler:
         if self.candidate_task_id != None:
             preempting_task = self.tasks[self.candidate_task_id]
             preempting_task.state = 'RUN'
+
+            ## For debug
             #print(f"Preempting task: \'{preempting_task.name}\'")
+        
+        ## For debug
         #print("Ready queue: { ", end="")
-        #for task_id in self.ready_q:
+        #for task_id in self.ready_q.get_list():
         #    print(f"\'{self.tasks[task_id].name}\'", end=", ")
         #print("}")
 
