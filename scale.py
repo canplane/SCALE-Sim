@@ -96,6 +96,6 @@ if __name__ == '__main__':
             )
     
     args = parser.parse_args()
-    s = Scale(a=args.a, t=args.t)
+    s = Scale(a=args.a, t=args.t, s=args.s, q=args.q)
     s.run()
 #
