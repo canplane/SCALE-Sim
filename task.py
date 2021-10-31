@@ -31,11 +31,12 @@ class Task:
         self.arrival_time = arrival_time
 
         ## Layers
-        self.layers, self.current_layer_idx = [], 0
+        self.layers = []
+        self.current_layer_idx, self.last_executed_layer_idx = 0, -1
 
         ## Cycle time
-        self.cycles_per_layer = []
         self.execution_timeline = []
+        self.cycles_per_layer = []
 
         ## Misc
         self.color = color
@@ -102,6 +103,7 @@ class Task:
                         num_filt=int(elems[6]),
                         stride=int(elems[7]),
                     ))
+                self.execution_timeline.append([])
             #
         #
     #

@@ -11,7 +11,8 @@ def run_slot(arch, task, scheduler):
     while task.current_layer_idx < len(task.layers):
         layer = task.layers[task.current_layer_idx]
 
-        print(f"Commencing run for {set_color(layer.name, key=task.color)} ({task.current_layer_idx + 1}/{len(task.layers)})")
+        print(f"{'Continuing' if task.last_executed_layer_idx == task.current_layer_idx else 'Commencing'} run for {set_color(layer.name, key=task.color)} ({task.current_layer_idx + 1}/{len(task.layers)})")
+        task.last_executed_layer_idx = task.current_layer_idx
 
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)
         max_bw_log = tg.gen_max_bw_numbers(trace_paths=layer.trace_paths)
@@ -28,10 +29,8 @@ def run_slot(arch, task, scheduler):
         ####
         task.current_layer_idx += 1
         if task.current_layer_idx < len(task.layers):
-            scheduler.refresh()
+            scheduler.refresh(a_layer_end=True)
             print("")
         ####
     #
-    task.state = 'END'
-    print(set_style(" TASK ENDED ", key='INVERSE'))
 #

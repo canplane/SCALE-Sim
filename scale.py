@@ -3,7 +3,7 @@ import argparse
 import run_nets as r
 
 from arch import Architecture
-from scheduler.scheduler import Scheduler, Preemption
+from scheduling.scheduler import Scheduler, Preemption
 
 from misc import set_style, set_color
 
@@ -18,14 +18,25 @@ def _df_string(dataflow):
 
 
 class Scale:
-    def __init__(self, a='', t=''):
+    def __init__(self, a='', t='', s='', q=0):
         if a == '':
             a = './architectures/eyeriss.cfg'
         if t == '':
             t = './task_list.csv'
+        if s == '':
+            s = 'RRB'
+        if q <= 0:
+            # TPU: 700 MHz, PREMA default time-quota: 0.25 ms
+            # -> (700 * 10 ** 6) * 0.25 = 175000000 cycles
+            q = 10000
 
         self.arch = Architecture(cfg_path=a)
-        self.scheduler = Scheduler(out_dir=self.arch.out_dir, csv_path=t)
+        self.scheduler = Scheduler(out_dir=self.arch.out_dir, csv_path=t, 
+                algorithm_name=s, 
+                time_quota=q, 
+                layerwise_preemption=True, 
+                drain=True, 
+            )
     #
 
     def run(self):
@@ -39,6 +50,8 @@ class Scale:
         print(f"SRAM Filter: \t{int(self.arch.sram_sz['filt'] / 1024)}")
         print(f"SRAM OFMAP: \t{int(self.arch.sram_sz['ofmap'] / 1024)}")
         print(f"Dataflow: \t{_df_string(self.arch.dataflow)}")
+        print("====================================================")
+        print(f"Scheduler: \t{set_style(set_style(f' {self.scheduler.algorithm_name} ', key='BOLD'), key='INVERSE')}")
         print("====================================================")
 
         self.scheduler.start()
@@ -68,6 +81,14 @@ if __name__ == '__main__':
     parser.add_argument('-t', metavar='filename', type=str,
                 default='',
                 help='path to the task list file (.csv)'
+            )
+    parser.add_argument('-s', metavar='filename', type=str,
+                default='',
+                help='scheduler algorithm ([FCFS | RRB | HPF | TOKEN | SJF | PREMA])'
+            )
+    parser.add_argument('-q', metavar='filename', type=int,
+                default=0,
+                help='time quota of scheduler algorithm (unit: clocks)'
             )
     
     args = parser.parse_args()
