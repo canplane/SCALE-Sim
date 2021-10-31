@@ -1,4 +1,5 @@
 import argparse
+import time
 
 import run_nets as r
 
@@ -24,7 +25,7 @@ class Scale:
         if t == '':
             t = './task_list.csv'
         if s == '':
-            s = 'RRB'
+            s = 'HPF'
         if q <= 0:
             # TPU: 700 MHz, PREMA default time-quota: 0.25 ms
             # -> (700 * 10 ** 6) * 0.25 = 175000000 cycles
@@ -58,12 +59,15 @@ class Scale:
         while True:
             task = self.scheduler.switch()
             if task == None:
+                if self.scheduler.has_not_yet_arrived_tasks():
+                    continue
                 break
             ####
             try:
                 r.run_slot(self.arch, task, self.scheduler)
             except Preemption:
                 print(set_style(set_color(" PREEMPTED!! ", key='RED'), key='INVERSE'))
+                #time.sleep(1)
             ####
         
         print("")

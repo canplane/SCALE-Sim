@@ -25,7 +25,7 @@ class Task:
             'estimated': None
         }
         self.priority = priority
-        self.token = None
+        self.token = priority
         self.state = None       # NEW, READY, RUN, END
 
         self.arrival_time = arrival_time

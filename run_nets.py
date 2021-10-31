@@ -6,11 +6,13 @@ from misc import set_style, set_color
 def run_slot(arch, task, scheduler):
     print("")
     print(f"Network: \t{set_style(set_color(task.name, key=task.color), key='BOLD')}")
+    print(f"Priority/Token: {task.priority}/{task.token}")
     print("----------------------------------------------------")
     
     while task.current_layer_idx < len(task.layers):
         layer = task.layers[task.current_layer_idx]
 
+        print(f"[Epoch time: {scheduler.epoch_time}]")
         print(f"{'Continuing' if task.last_executed_layer_idx == task.current_layer_idx else 'Commencing'} run for {set_color(layer.name, key=task.color)} ({task.current_layer_idx + 1}/{len(task.layers)})")
         task.last_executed_layer_idx = task.current_layer_idx
 

@@ -24,11 +24,18 @@ class Scheduler:
 
         self.algorithm_name = algorithm_name
         if algorithm_name == 'FCFS':
-            self.ready_q = FCFS()
+            self.ready_q = FCFS(
+                    preemptive=False, layerwise_preemption=layerwise_preemption,
+                )
         elif algorithm_name == 'RRB':
-            self.ready_q = RRB(time_quota=time_quota)
+            self.ready_q = RRB(
+                    preemptive=True, layerwise_preemption=layerwise_preemption,
+                    time_quota=time_quota
+                )
         elif algorithm_name == 'HPF':
-            self.ready_q = HPF
+            self.ready_q = HPF(
+                    preemptive=True, layerwise_preemption=layerwise_preemption,
+                )
         elif algorithm_name == 'TOKEN':
             self.ready_q = TOKEN
         elif algorithm_name == 'SJF':
@@ -38,7 +45,7 @@ class Scheduler:
         else:
             raise SCALE_Error('Unknown scheduler name')
 
-        self.layerwise_preemption = layerwise_preemption
+        self.ready_q.layerwise_preemption = layerwise_preemption
 
         self.tasks = {}
 
@@ -104,24 +111,16 @@ class Scheduler:
     #
 
     def _refresh_time(self):
+        if self.current_task_id == None:
+            return
+
+
         running_task = self.tasks[self.current_task_id]
 
         ## Get diff cycles 
         _cycles = 0
         for num in running_task.cycles_per_layer:                       # 이전까지 실행 완료된 레이어의 cycle 합
             _cycles += num
-
-        ###if running_task.current_layer_idx < len(running_task.layers):   # 현재 실행 중이던 레이어의 현재까지의 cycle
-        ###    _layer = running_task.layers[running_task.current_layer_idx]
-        ###    if not _layer.is_empty_var('cycles'):   # 다음 레이어 아직 실행 안 한 상태라면 empty
-        ###        _cycles += running_task.layers[running_task.current_layer_idx].load_var('cycles', init=0)
-        ###diff_cycles = _cycles - running_task.execution_time['executed']
-        
-        ###if last_executed_idx == len(running_task.layers) or running_task.layers[last_executed_idx].is_empty_var('cycles'):    # 다음 레이어 아직 실행 안 한 상태라면 empty
-        ###    last_executed_idx -= 1
-        ###else:
-        ###    # 현재 실행 중이던 레이어의 현재까지의 cycle
-        ###    _cycles += running_task.layers[last_executed_idx].load_var('cycles')
 
         if running_task.current_layer_idx == running_task.last_executed_layer_idx:  # 레이어 실행 중 멈춤
             _cycles += running_task.layers[running_task.current_layer_idx].load_var('cycles')
@@ -160,17 +159,33 @@ class Scheduler:
                 self.ready_q.push(task_id)
         
         ## if CHECKPOINT and not DRAIN
-        if preempt and self.ready_q.front() != None:
-            if a_layer_end == True and self.layerwise_preemption == True:
-                raise Preemption()
-            if self.ready_q.is_preempting_condition(epoch_time=self.epoch_time):
-                raise Preemption()
+        if preempt and self.ready_q.is_preempting_condition(
+                    tasks=self.tasks, 
+                    epoch_time=self.epoch_time, 
+                    a_layer_end=a_layer_end,
+                ):
+            raise Preemption()
     #
 
     ## Context switch
     def switch(self):
+        _task_swap = False
+        if self.current_task_id != None:
+            current_task = self.tasks[self.current_task_id]
+
+            ## END
+            if current_task.current_layer_idx == len(current_task.layers):
+                self.refresh(preempt=False)
+                print(f"Execution timeline: {current_task.execution_timeline}")
+
+                current_task.state = 'END'
+                print(set_style(" TASK ENDED ", key='INVERSE'))
+            ## RUN
+            else:
+                _task_swap = True
+
         ## Dispatch next task
-        next_task_id = self.ready_q.pop(epoch_time=self.epoch_time)
+        next_task_id = self.ready_q.pop(tasks=self.tasks, epoch_time=self.epoch_time)
         next_task = None
         if next_task_id != None:
             next_task = self.tasks[next_task_id]
@@ -179,30 +194,36 @@ class Scheduler:
             ## for debug
             #print(f"Next task: \'{next_task.name}\'")
 
+        if _task_swap == True:
+            current_task.state = 'READY'
+            self.ready_q.push(self.current_task_id)
+
         ## for debug
         #print("Ready queue: { ", end="")
         #for task_id in self.ready_q.get_list():
         #    print(f"\'{self.tasks[task_id].name}\'", end=", ")
         #print("}")
 
-
-        ## Push current task into ready queue
-        if self.current_task_id != None:
-            current_task = self.tasks[self.current_task_id]
-
-            ## END
-            if current_task.current_layer_idx == len(current_task.layers):
-                self.refresh(preempt=False)
-                print(current_task.execution_timeline)
-
-                current_task.state = 'END'
-                print(set_style(" TASK ENDED ", key='INVERSE'))
-            ## RUN
-            else:
-                current_task.state = 'READY'
-                self.ready_q.push(self.current_task_id)
-
         self.current_task_id = next_task_id
         return next_task
+    #
+
+    ## Process idle time
+    def has_not_yet_arrived_tasks(self):
+        _epoch_time = None
+        for task_id in self.tasks:
+            if self.tasks[task_id].state == 'NEW':
+                if _epoch_time == None or self.tasks[task_id].arrival_time < _epoch_time:
+                    _epoch_time = self.tasks[task_id].arrival_time
+
+        if _epoch_time != None:
+            print("")
+            print(set_style(f" Jump idle time (epoch time: {self.epoch_time} -> {_epoch_time}) ", key='INVERSE'))
+
+            self.epoch_time = _epoch_time
+            self.refresh(preempt=False)
+            return True
+        else:
+            return False
     #
 #
