@@ -67,7 +67,7 @@ class Scale:
                 r.run_slot(self.arch, task, self.scheduler)
             except Preemption:
                 print(set_style(set_color(" PREEMPTED!! ", key='RED'), key='INVERSE'))
-                #time.sleep(1)
+                time.sleep(1)
             ####
         
         print("")

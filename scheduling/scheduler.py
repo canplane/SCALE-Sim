@@ -19,22 +19,23 @@ class Scheduler:
                 layerwise_preemption: bool=False,
                 drain: bool=True,
             ):
-        self.epoch_time = 0     # 단위: cycle
+        self.epoch_time = 0     # unit: cycle
         self.current_task_id = None
 
         self.algorithm_name = algorithm_name
         if algorithm_name == 'FCFS':
-            self.ready_q = FCFS(
-                    preemptive=False, layerwise_preemption=layerwise_preemption,
+            self.ready_q = FCFS(self,
+                    layerwise_preemption=layerwise_preemption, 
                 )
         elif algorithm_name == 'RRB':
-            self.ready_q = RRB(
-                    preemptive=True, layerwise_preemption=layerwise_preemption,
+            self.ready_q = RRB(self, 
+                    layerwise_preemption=layerwise_preemption, 
                     time_quota=time_quota
                 )
         elif algorithm_name == 'HPF':
-            self.ready_q = HPF(
-                    preemptive=True, layerwise_preemption=layerwise_preemption,
+            self.ready_q = HPF(self, 
+                    layerwise_preemption=layerwise_preemption, 
+                    preemptive=True, 
                 )
         elif algorithm_name == 'TOKEN':
             self.ready_q = TOKEN
@@ -44,8 +45,6 @@ class Scheduler:
             self.ready_q = PREMA
         else:
             raise SCALE_Error('Unknown scheduler name')
-
-        self.ready_q.layerwise_preemption = layerwise_preemption
 
         self.tasks = {}
 
@@ -100,7 +99,7 @@ class Scheduler:
 
 
     #### Scheduling
-    
+
     def start(self):
         ## Initialize ready queue and state of tasks
         for task_id, task in self.tasks.items():
@@ -160,11 +159,7 @@ class Scheduler:
                 self.ready_q.push(task_id)
         
         ## if CHECKPOINT and not DRAIN
-        if preempt and self.ready_q.is_preempting_condition(
-                    tasks=self.tasks, 
-                    epoch_time=self.epoch_time, 
-                    a_layer_end=a_layer_end,
-                ):
+        if preempt and self.ready_q.is_in_preempting_condition(a_layer_end=a_layer_end):
             raise Preemption()
     #
 
@@ -186,7 +181,7 @@ class Scheduler:
                 _task_swap = True
 
         ## Dispatch next task
-        next_task_id = self.ready_q.pop(tasks=self.tasks, epoch_time=self.epoch_time)
+        next_task_id = self.ready_q.pop()
         next_task = None
         if next_task_id != None:
             next_task = self.tasks[next_task_id]
