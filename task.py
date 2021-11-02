@@ -5,7 +5,7 @@ from scale_error import *
 
 class Task:
     def __init__(self, 
-                parent=None,
+                arch=None,
                 task_id=None, net_name=None, net_path=None,
 
                 priority=None,
@@ -13,20 +13,22 @@ class Task:
 
                 color=None
             ):
-        self.parent = parent    # scheduler
+        self.arch = arch
         self.name = net_name
         
         ## Context table
-        #self.task_id = task_id
-        self.execution_time = {
-            'executed': 0,
-            'waited': 0,
+        self.task_id = task_id
 
-            'estimated': None
-        }
+        self.executed_time, self.executed_time_per_layer = 0, []
+        self.executed_timeline = []
+        self.waited_time, self.waited_time_per_layer = 0, []
+        self.waited_timeline = []
+        # used in PREMA
+        self.estimated_time, self.estimated_time_per_layer = 0, []
+
         self.priority = priority
         self.token = priority
-        self.state = None       # NEW, READY, RUN, END
+        self.state = 'NEW'  # NEW, READY, RUN, END
 
         self.arrival_time = arrival_time
 
@@ -34,19 +36,15 @@ class Task:
         self.layers = []
         self.current_layer_idx, self.last_executed_layer_idx = 0, -1
 
-        ## Cycle time
-        self.execution_timeline = []
-        self.cycles_per_layer = []
-
         ## Misc
         self.color = color
 
-        self._set_output()
+        self._set_output(f"{self.arch.out_dir}/{self.name}")
         self._load_from_csv(net_path)
     #
 
-    def _set_output(self):
-        self.out_dir = f"{self.parent.out_dir}/{self.name}"
+    def _set_output(self, out_dir):
+        self.out_dir = out_dir
         os.mkdir(self.out_dir)  # 에러 나면 task list 파일에서 task 이름 중복되었는지 살필 것
 
         self.log_paths = {
@@ -103,7 +101,10 @@ class Task:
                         num_filt=int(elems[6]),
                         stride=int(elems[7]),
                     ))
-                self.execution_timeline.append([])
+                self.executed_time_per_layer.append(0)
+                self.executed_timeline.append([])
+                self.waited_time_per_layer.append(0)
+                self.waited_timeline.append([])
             #
         #
     #
@@ -119,7 +120,7 @@ class Task:
                     stride=None,
                 ):
             self.parent = parent    # task
-            #self.nth_layer = nth_layer
+            self.nth_layer = nth_layer
             self.name = layer_name
 
             self.ifmap, self.filt, self.ch = ifmap, filt, ch

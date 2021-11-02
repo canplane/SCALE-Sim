@@ -2,7 +2,7 @@ import random
 
 from scale_error import SCALE_Error
 
-from scheduling.ready_queue import FCFS, RRB, HPF, TOKEN, SJF, PREMA
+from scheduling.ready_queue import FCFS_RRB, HPF, TOKEN, SJF, PREMA
 from task import Task
 
 from misc import set_style, set_color
@@ -13,42 +13,48 @@ class Preemption(Exception):
 
 
 class Scheduler:
-    def __init__(self, out_dir="./outputs", csv_path=None, 
+    def __init__(self, arch=None, csv_path=None, 
                 algorithm_name: str=None, 
-                time_quota: int=None, 
-                layerwise_preemption: bool=False,
-                drain: bool=True,
+                preemptive: bool=True, layerwise_scheduling: bool=False,
+                time_quota: int=None, dynamic: bool=True,
             ):
         self.epoch_time = 0     # unit: cycle
         self.current_task_id = None
 
         self.algorithm_name = algorithm_name
         if algorithm_name == 'FCFS':
-            self.ready_q = FCFS(self,
-                    layerwise_preemption=layerwise_preemption, 
+            self.ready_q = FCFS_RRB(self, time_quota=time_quota, 
+                    preemptive=False, layerwise_scheduling=layerwise_scheduling
                 )
         elif algorithm_name == 'RRB':
-            self.ready_q = RRB(self, 
-                    layerwise_preemption=layerwise_preemption, 
-                    time_quota=time_quota
+            self.ready_q = FCFS_RRB(self, time_quota=time_quota, 
+                    preemptive=True, layerwise_scheduling=layerwise_scheduling
                 )
         elif algorithm_name == 'HPF':
-            self.ready_q = HPF(self, 
-                    layerwise_preemption=layerwise_preemption, 
-                    preemptive=True, 
+            self.ready_q = HPF(self, time_quota=time_quota, 
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling
                 )
         elif algorithm_name == 'TOKEN':
-            self.ready_q = TOKEN
+            self.ready_q = TOKEN(self, time_quota=time_quota, 
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling,
+                    dynamic=dynamic
+                )
         elif algorithm_name == 'SJF':
-            self.ready_q = SJF
+            self.ready_q = SJF(self, time_quota=time_quota, 
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling,
+                    dynamic=dynamic
+                )
         elif algorithm_name == 'PREMA':
-            self.ready_q = PREMA
+            self.ready_q = PREMA(self, time_quota=time_quota, 
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling,
+                    dynamic=dynamic
+                )
         else:
             raise SCALE_Error('Unknown scheduler name')
 
         self.tasks = {}
 
-        self.out_dir = out_dir
+        self.arch = arch
         if csv_path != None:
             self._load_from_csv(csv_path)
     #
@@ -85,7 +91,7 @@ class Scheduler:
         
         this_task_id = len(self.tasks)
         self.tasks[this_task_id] = Task(
-                parent=self,
+                arch=self.arch,
 
                 task_id=this_task_id,
                 net_name=net_name,
@@ -104,8 +110,8 @@ class Scheduler:
         ## Initialize ready queue and state of tasks
         for task_id, task in self.tasks.items():
             if task.arrival_time <= self.epoch_time:
-                task.state = 'READY'
                 self.ready_q.push(task_id)
+                task.state = 'READY'
             else:
                 task.state = 'NEW'
     #
@@ -114,38 +120,39 @@ class Scheduler:
         if self.current_task_id == None:
             return
 
-
         running_task = self.tasks[self.current_task_id]
 
         ## Get diff cycles 
-        _cycles = 0
-        for num in running_task.cycles_per_layer:                       # 이전까지 실행 완료된 레이어의 cycle 합
-            _cycles += num
-
-        if running_task.current_layer_idx == running_task.last_executed_layer_idx:  # 레이어 실행 중 멈춤
-            _cycles += running_task.layers[running_task.current_layer_idx].load_var('cycles')
-        
-        diff_cycles = _cycles - running_task.execution_time['executed']
+        diff_cycles = running_task.layers[running_task.last_executed_layer_idx].load_var('cycles') - running_task.executed_time_per_layer[running_task.last_executed_layer_idx]
 
         ## Refresh epoch time
         self.epoch_time += diff_cycles
 
         ## Refresh time for current task and all ready tasks
-        _li = running_task.execution_timeline[running_task.last_executed_layer_idx]
+        running_task.executed_time += diff_cycles
+        running_task.executed_time_per_layer[running_task.last_executed_layer_idx] += diff_cycles
+        _li = running_task.executed_timeline[running_task.last_executed_layer_idx]
         if bool(_li) and _li[-1][1] == self.epoch_time - diff_cycles:
             _li[-1][1] = self.epoch_time
         else:
             _li.append([ self.epoch_time - diff_cycles, self.epoch_time ])
 
-        running_task.execution_time['executed'] += diff_cycles
         for task_id in self.ready_q.get_list():
-            self.tasks[task_id].execution_time['waited'] += diff_cycles
+            task = self.tasks[task_id]
+
+            task.waited_time += diff_cycles
+            task.waited_time_per_layer[task.current_layer_idx] += diff_cycles
+            _li = task.waited_timeline[task.current_layer_idx]
+            if bool(_li) and _li[-1][1] == self.epoch_time - diff_cycles:
+                _li[-1][1] = self.epoch_time
+            else:
+                _li.append([ self.epoch_time - diff_cycles, self.epoch_time ])
         
         ## for debug
         #print(f"epoch time: {self.epoch_time}")
         #for task_id, task in self.tasks.items():
-        #    print(f"[{task_id}] execution time: {task.execution_time['executed']} + {task.execution_time['waited']} = {task.execution_time['executed'] + task.execution_time['waited']}")
-        #print(f"[{self.current_task_id}] executed timeline (tail): {running_task.execution_timeline[-3:]}")
+        #    print(f"[{task_id}] executed time: {task.executed_time} + {task.waited_time} = {task.executed_time + task.waited_time}")
+        #print(f"[{self.current_task_id}] executed timeline (tail): {running_task.executed_timeline[-3:]}")
     #
 
     def refresh(self, preempt: bool=True, a_layer_end: bool=False):
@@ -155,8 +162,8 @@ class Scheduler:
         ## Add newly arriving tasks
         for task_id, task in self.tasks.items():
             if task.state == 'NEW' and task.arrival_time <= self.epoch_time:
-                task.state = 'READY'
                 self.ready_q.push(task_id)
+                task.state = 'READY'
         
         ## if CHECKPOINT and not DRAIN
         if preempt and self.ready_q.is_in_preempting_condition(a_layer_end=a_layer_end):
@@ -172,7 +179,7 @@ class Scheduler:
             ## END
             if current_task.current_layer_idx == len(current_task.layers):
                 self.refresh(preempt=False)
-                print(f"Execution timeline: {current_task.execution_timeline}")
+                print(f"Executed timeline: {current_task.executed_timeline}")
 
                 current_task.state = 'END'
                 print(set_style(" TASK ENDED ", key='INVERSE'))

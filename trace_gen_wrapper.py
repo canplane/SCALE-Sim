@@ -5,17 +5,14 @@ import sram_traffic_is as sram_is
 
 
 def gen_all_traces(arch, layer, scheduler):
-    sram_cycles, util = 0, 0
-
     print('Generating traces and bw numbers')
     sram_cycles, util = \
             { 'os': sram_os, 'ws': sram_ws, 'is': sram_is }.get(arch.dataflow, 'os').sram_traffic(
                     arch, layer, scheduler
                 )
 
-    word_sz_bytes = 1
-
     #print('Generating DRAM traffic')
+    word_sz_bytes = 1
     dram.dram_trace_read_v2(
         sram_sz=arch.sram_sz['ifmap'],
         word_sz_bytes=word_sz_bytes,
@@ -38,7 +35,7 @@ def gen_all_traces(arch, layer, scheduler):
     )
 
     print(f'Cycles for compute  : \t{sram_cycles} cycles')
-    print(f'Average utilization : \t{util} %')
+    print(f'Average utilization : \t{util:.6f} %')
     bw_numbers, detail_log = gen_bw_numbers(layer.trace_paths)  #array_h, array_w)
 
     return bw_numbers, detail_log, sram_cycles, util
@@ -219,10 +216,10 @@ def gen_bw_numbers(trace_paths=None
     #print(f'total_util: {total_util}, sram_clk: {sram_clk}')
     #avg_util            = total_util / sram_clk * 100
 
-    units = 'Bytes/cycle'
-    print(f'DRAM IFMAP Read BW  : \t{dram_activation_bw} {units}')
-    print(f'DRAM Filter Read BW : \t{dram_filter_bw} {units}')
-    print(f'DRAM OFMAP Write BW : \t{dram_ofmap_bw} {units}')
+    UNIT = 'Bytes/cycle'
+    print(f'DRAM IFMAP Read BW  : \t{dram_activation_bw:.6f} {UNIT}')
+    print(f'DRAM Filter Read BW : \t{dram_filter_bw:.6f} {UNIT}')
+    print(f'DRAM OFMAP Write BW : \t{dram_ofmap_bw:.6f} {UNIT}')
     #print(f'Average utilization : \t{avg_util} %')
     #print('SRAM OFMAP Write BW, Min clk, Max clk')
     
