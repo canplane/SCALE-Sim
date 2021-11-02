@@ -23,15 +23,15 @@ class Scale:
         if a == '':
             a = './architectures/eyeriss.cfg'
         if t == '':
-            t = './task_list_single.csv'
+            t = './task_list.csv'
         if s == '':
-            s = 'FCFS'
+            s = 'PREMA'
         if q <= 0:
             # TPU: 700 MHz, PREMA default time-quota: 0.25 ms
             # -> (700 * 10 ** 6) * 0.25 = 175000000 cycles
             q = 100000
         preemptive = True
-        layerwise_scheduling = False
+        layerwise_scheduling = True
         dynamic = True
 
         self.arch = Architecture(cfg_path=a)

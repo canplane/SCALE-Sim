@@ -25,10 +25,17 @@ class _ReadyQueue:
         return self.li
     
     def push(self, task_id: int) -> None:
+        self.li.append(task_id)
+
+        ## PREMA Algorithm 1: Inference Time Prediction Model
         if self.scheduler.tasks[task_id].state == 'NEW':
             self.newly_arrived = True
 
-        self.li.append(task_id)
+            task = self.scheduler.tasks[task_id]
+            for layer in task.layers:
+                estimated_cycles, estimated_util = prediction_layer_time(self.scheduler.arch, layer)
+                task.estimated_time += estimated_cycles
+                task.estimated_time_per_layer.append(estimated_cycles)
     
     def pop(self) -> int:
         self.newly_arrived = False
@@ -44,6 +51,35 @@ class _ReadyQueue:
         self.next_i, self.next_id = None, None
         return ret
     
+    def _get_remaining_layer_time(self, task):
+        return task.estimated_time_per_layer[task.current_layer_idx] - task.executed_time_per_layer[task.current_layer_idx]
+    def _get_remaining_time(self, task):
+        return task.estimated_time - task.executed_time
+
+    ## PREMA Algorithm 3: Dynamic Preemption Mechanism Selection
+    # True if CHECKPOINT, False if DRAIN
+    def is_checkpoint(self, current_task, candidate_task):
+        if not self.dynamic:
+            return True
+
+        if self.layerwise_scheduling:
+            current_task_remaining_time = self._get_remaining_layer_time(current_task)
+            candidate_task_remaining_time = self._get_remaining_layer_time(candidate_task)
+            degradation_current = candidate_task_remaining_time / current_task.estimated_time_per_layer[current_task.current_layer_idx]
+            degradation_candidate = current_task_remaining_time / candidate_task.estimated_time_per_layer[candidate_task.current_layer_idx]
+        else:
+            current_task_remaining_time = self._get_remaining_time(current_task)
+            candidate_task_remaining_time = self._get_remaining_time(candidate_task)
+            degradation_current = candidate_task_remaining_time / current_task.estimated_time
+            degradation_candidate = current_task_remaining_time / candidate_task.estimated_time
+        #print(degradation_current, degradation_candidate)
+
+        if degradation_current > degradation_candidate:
+            ret = False  ## DRAIN
+        else:
+            ret = True  ## CHECKPOINT
+        return ret
+
     ## Abstract methods
     def _select_next_task(self):
         pass
@@ -126,6 +162,9 @@ class HPF(_ReadyQueue):
             elif self.layerwise_scheduling and a_layer_end:
                 if tasks[self.next_id].priority == tasks[current_id].priority:
                     ret = True
+
+            if ret:
+                ret = self.is_checkpoint(tasks[current_id], tasks[self.next_id])
             ####
         self.newly_arrived = False
         if self.scheduler.epoch_time - self.recent_wakeup_time >= self.time_quota:
@@ -135,26 +174,27 @@ class HPF(_ReadyQueue):
         return ret
 
 
-## PREMA (SJF, TOKEN, PREMA)
+## PREMA: SJF, TOKEN, PREMA
 class _PREMA(_ReadyQueue):
-    def push(self, task_id: int) -> None:
-        super().push(task_id)
+    ## Find shortest estimated job
+    def _find_shortest_estimated_job(self, li_enumerate: list):
+        tasks = self.scheduler.tasks
 
-        ## PREMA Algorithm 1: Inference Time Prediction Model
-        if self.scheduler.tasks[task_id].state == 'NEW':
-            task = self.scheduler.tasks[task_id]
-            for layer in task.layers:
-                estimated_cycles, estimated_util = prediction_layer_time(self.scheduler.arch, layer)
-                task.estimated_time += estimated_cycles
-                task.estimated_time_per_layer.append(estimated_cycles)
-    
+        if self.layerwise_scheduling:
+            next_i, next_id = li_enumerate[0]
+            for i, id in li_enumerate:
+                #if tasks[id].estimated_time_per_layer[tasks[id].current_layer_idx] < tasks[next_id].estimated_time_per_layer[tasks[next_id].current_layer_idx]:
+                if self._get_remaining_layer_time(tasks[id]) < self._get_remaining_layer_time(tasks[next_id]):  # SRTF
+                    next_i, next_id = i, id
+        else:
+            next_i, next_id = li_enumerate[0]
+            for i, id in li_enumerate:
+                #if tasks[id].estimated_time < tasks[next_id].estimated_time:
+                if self._get_remaining_time(tasks[id]) < self._get_remaining_time(tasks[next_id]):  # SRTF
+                    next_i, next_id = i, id
+        return next_i, next_id
 
-    def _get_remaining_layer_time(self, task):
-        return task.estimated_time_per_layer[task.current_layer_idx] - task.executed_time_per_layer[task.current_layer_idx]
-    def _get_remaining_time(self, task):
-        return task.estimated_time - task.executed_time
-
-    ## PREMA Algorithm 2
+    ## PREMA Algorithm 2: PREMA Scheduling Algorithm
     def _select_next_task(self):
         self.next_i, self.next_id = None, None
         if not bool(self.li):
@@ -164,18 +204,7 @@ class _PREMA(_ReadyQueue):
         tasks = self.scheduler.tasks
 
         if self.type == 'SJF':
-            if self.layerwise_scheduling:
-                next_i, next_id = 0, self.li[0]
-                for i, id in enumerate(self.li):
-                    #if tasks[id].estimated_time_per_layer[tasks[id].current_layer_idx] < tasks[next_id].estimated_time_per_layer[tasks[next_id].current_layer_idx]:
-                    if self._get_remaining_layer_time(tasks[id]) < self._get_remaining_layer_time(tasks[next_id]):
-                        next_i, next_id = i, id
-            else:
-                next_i, next_id = 0, self.li[0]
-                for i, id in enumerate(self.li):
-                    #if tasks[id].estimated_time < tasks[next_id].estimated_time:
-                    if self._get_remaining_time(tasks[id]) < self._get_remaining_time(tasks[next_id]):
-                        next_i, next_id = i, id
+            next_i, next_id = self._find_shortest_estimated_job(list(enumerate(self.li)))
         else:
             ## Refresh token in all tasks in ready queue
             for id in self.li:
@@ -197,19 +226,7 @@ class _PREMA(_ReadyQueue):
                     if self.type == 'TOKEN':
                         next_i, next_id = candidates[threshold][0]
                     else:
-                        ## Find shortest estimated job
-                        if self.layerwise_scheduling:
-                            next_i, next_id = candidates[threshold][0]
-                            for i, id in candidates[threshold]:
-                                #if tasks[id].estimated_time_per_layer[tasks[id].current_layer_idx] < tasks[next_id].estimated_time_per_layer[tasks[next_id].current_layer_idx]:
-                                if self._get_remaining_layer_time(tasks[id]) < self._get_remaining_layer_time(tasks[next_id]):
-                                    next_i, next_id = i, id
-                        else:
-                            next_i, next_id = candidates[threshold][0]
-                            for i, id in candidates[threshold]:
-                                #if tasks[id].estimated_time < tasks[next_id].estimated_time:
-                                if self._get_remaining_time(tasks[id]) < self._get_remaining_time(tasks[next_id]):
-                                    next_i, next_id = i, id
+                        next_i, next_id = self._find_shortest_estimated_job(candidates[threshold])
                     break
         ####
         self.next_i, self.next_id = next_i, next_id
@@ -231,26 +248,8 @@ class _PREMA(_ReadyQueue):
             ret = True
         else:
             ####
-            if not self.dynamic:
-                ret = True  ## CHECKPOINT
-            else:
-                current_task, candidate_task = tasks[current_id], tasks[self.next_id]
-                if self.layerwise_scheduling:
-                    current_task_remaining_time = self._get_remaining_layer_time(current_task)
-                    candidate_task_remaining_time = self._get_remaining_layer_time(candidate_task)
-                    degradation_current = candidate_task_remaining_time / current_task.estimated_time_per_layer[current_task.current_layer_idx]
-                    degradation_candidate = current_task_remaining_time / candidate_task.estimated_time_per_layer[candidate_task.current_layer_idx]
-                else:
-                    current_task_remaining_time = self._get_remaining_time(current_task)
-                    candidate_task_remaining_time = self._get_remaining_time(candidate_task)
-                    degradation_current = candidate_task_remaining_time / current_task.estimated_time
-                    degradation_candidate = current_task_remaining_time / candidate_task.estimated_time
-                #print(degradation_current, degradation_candidate)
-
-                if degradation_current > degradation_candidate:
-                    ret = False  ## DRAIN
-                else:
-                    ret = True  ## CHECKPOINT
+            if ret:
+                ret = self.is_checkpoint(tasks[current_id], tasks[self.next_id])
             ####
         self.newly_arrived = False
         if self.scheduler.epoch_time - self.recent_wakeup_time >= self.time_quota:

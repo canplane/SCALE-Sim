@@ -24,30 +24,27 @@ class Scheduler:
         self.algorithm_name = algorithm_name
         if algorithm_name == 'FCFS':
             self.ready_q = FCFS_RRB(self, time_quota=time_quota, 
-                    preemptive=False, layerwise_scheduling=layerwise_scheduling
+                    preemptive=False, layerwise_scheduling=layerwise_scheduling, dynamic=False
                 )
         elif algorithm_name == 'RRB':
             self.ready_q = FCFS_RRB(self, time_quota=time_quota, 
-                    preemptive=True, layerwise_scheduling=layerwise_scheduling
+                    preemptive=True, layerwise_scheduling=layerwise_scheduling, dynamic=False
                 )
         elif algorithm_name == 'HPF':
             self.ready_q = HPF(self, time_quota=time_quota, 
-                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling, dynamic=dynamic
                 )
         elif algorithm_name == 'TOKEN':
             self.ready_q = TOKEN(self, time_quota=time_quota, 
-                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling,
-                    dynamic=dynamic
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling, dynamic=dynamic
                 )
         elif algorithm_name == 'SJF':
             self.ready_q = SJF(self, time_quota=time_quota, 
-                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling,
-                    dynamic=dynamic
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling, dynamic=dynamic
                 )
         elif algorithm_name == 'PREMA':
             self.ready_q = PREMA(self, time_quota=time_quota, 
-                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling,
-                    dynamic=dynamic
+                    preemptive=preemptive, layerwise_scheduling=layerwise_scheduling, dynamic=dynamic
                 )
         else:
             raise SCALE_Error('Unknown scheduler name')
