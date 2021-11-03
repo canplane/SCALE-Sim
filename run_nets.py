@@ -5,15 +5,16 @@ from misc import set_style, set_color
 
 def run_slot(arch, task, scheduler):
     print("")
-    print(f"Network: \t{set_style(set_color(task.name, key=task.color), key='BOLD')}")
-    print(f"Token: \t\t{task.token:.6f} (Priority: {task.priority})")
+    print(f"Network : \t{set_style(set_color(task.name, key=task.color), key='BOLD')}")
+    print(f"Token   : \t{task.token:{'' if type(task.token) == int else '.3f'}} (Priority: {task.priority})")
     print("----------------------------------------------------")
     
     while task.current_layer_idx < len(task.layers):
+        scheduler.recent_switched_epoch_time = scheduler.epoch_time
+
         layer = task.layers[task.current_layer_idx]
 
-        print(f"[Epoch time: {scheduler.epoch_time}]")
-        print(f"{'Continuing' if task.last_executed_layer_idx == task.current_layer_idx else 'Commencing'} run for {set_color(layer.name, key=task.color)} ({task.current_layer_idx + 1}/{len(task.layers)})")
+        print(f"{'Continuing' if task.last_executed_layer_idx == task.current_layer_idx else 'Commencing'} run for {set_style(set_color(layer.name, key=task.color), key='BOLD')} ({task.current_layer_idx + 1}/{len(task.layers)})")
         task.last_executed_layer_idx = task.current_layer_idx
 
         avg_bw_log, detail_log, sram_cycles, util = tg.gen_all_traces(arch, layer, scheduler)

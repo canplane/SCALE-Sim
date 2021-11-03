@@ -1,4 +1,5 @@
 import math
+import sys
 from tqdm import tqdm
 
 from scale_error import *
@@ -53,8 +54,8 @@ def sram_traffic(arch, layer, scheduler):
         all_ifmap_base_addr.append(addr)'''
 
     try:
-        pbar_v = tqdm(total=num_v_fold, desc="v_fold", bar_format="{l_bar}" + set_color("{bar}", key=task.color) + "{r_bar}")
-        pbar_h = tqdm(total=num_h_fold, desc="h_fold", bar_format="{l_bar}" + set_color("{bar}", key=task.color) + "{r_bar}")
+        pbar_v = tqdm(total=num_v_fold, desc="v_fold ", bar_format="{l_bar}" + set_color("{bar}", key=task.color) + "{r_bar}")
+        pbar_h = tqdm(total=num_h_fold, desc="h_fold ", bar_format="{l_bar}" + set_color("{bar}", key=task.color) + "{r_bar}")
 
         rem_c = layer.load_var('rem_c', init=required_cols)
         v = layer.load_var('v', init=0); pbar_v.update(v)
@@ -126,11 +127,17 @@ def sram_traffic(arch, layer, scheduler):
                     
                     util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
 
-                    _del_cycles = cycles - prev_cycles
-                    util += util_this_fold * _del_cycles
+                    del_cycles = cycles - prev_cycles
+                    util += util_this_fold * del_cycles
                     prev_cycles = cycles
 
                     ####
+                    scheduler.epoch_time += del_cycles
+
+                    sys.stderr.write("\033[F")  # back to previous line
+                    sys.stderr.write("\033[K")  # clear line
+                    print(f"Epoch time : \t{scheduler.recent_switched_epoch_time} -> {set_color(scheduler.epoch_time, key=task.color)}", file=sys.stderr)
+                    
                     h += 1; pbar_h.update(1)
                     if h < num_h_fold:
                         layer.store_var({ 'h': h, 'rem_h': rem_h })
@@ -195,11 +202,17 @@ def sram_traffic(arch, layer, scheduler):
                     _rem -= col_used
                 util_this_fold = _tmp_util / (arch.array['h'] * arch.array['w'])
 
-                _del_cycles = cycles - prev_cycles
-                util += util_this_fold * _del_cycles
+                del_cycles = cycles - prev_cycles
+                util += util_this_fold * del_cycles
                 prev_cycles = cycles
 
                 ####
+                scheduler.epoch_time += del_cycles
+
+                sys.stderr.write("\033[F")  # back to previous line
+                sys.stderr.write("\033[K")  # clear line
+                print(f"Epoch time : \t{scheduler.recent_switched_epoch_time} -> {set_color(scheduler.epoch_time, key=task.color)}", file=sys.stderr)
+                
                 pbar_h.update(1)
                 ####
             #
@@ -224,8 +237,6 @@ def sram_traffic(arch, layer, scheduler):
     layer.clear_var([ 'cycles', 'util' ])
     if not layer.is_no_vars():
         raise SCALE_Error("Variables remained in completed layer")
-    
-    layer.store_var({ 'cycles': cycles, 'util': util })
     ####
     
     #print(f"Compute finished at: {final} cycles")
@@ -241,11 +252,11 @@ def gen_trace_filt(
             filters_this_fold = 4,
             sram_read_trace_file = "sram_read.csv"
         ):
-    outfile = open(sram_read_trace_file,'a')
+    outfile = open(sram_read_trace_file, 'a')
  
     # There is no data from the left side till the weights are fed in
     # This prefix is to mark the blanks
-    prefix  = ""
+    prefix = ""
     for r in range(num_rows):
         prefix += ", "
 

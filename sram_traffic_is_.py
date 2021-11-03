@@ -192,6 +192,9 @@ def sram_traffic(arch, layer, scheduler):
 
         remaining_cols -= cols_this_fold
 
+    ####
+    scheduler.epoch_time += cycles
+    ####
     avg_util = (util / compute_cycles) * 100
     return (str(cycles), avg_util)
 

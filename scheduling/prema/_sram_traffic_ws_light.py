@@ -1,4 +1,5 @@
 import math
+import sys
 from tqdm import tqdm
 
 from scale_error import *
@@ -74,11 +75,17 @@ def sram_traffic(arch, layer, scheduler):
                     
                     util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
 
-                    _del_cycles = cycles - prev_cycles
-                    util += util_this_fold * _del_cycles
+                    del_cycles = cycles - prev_cycles
+                    util += util_this_fold * del_cycles
                     prev_cycles = cycles
 
                     ####
+                    scheduler.epoch_time += del_cycles
+
+                    sys.stderr.write("\033[F")  # back to previous line
+                    sys.stderr.write("\033[K")  # clear line
+                    print(f"Epoch time: \t{scheduler.recent_switched_epoch_time} -> {set_color(scheduler.epoch_time, key=task.color)}", file=sys.stderr)
+
                     h += 1; pbar_h.update(1)
                     if h < num_h_fold:
                         layer.store_var({ 'h': h, 'rem_h': rem_h })
@@ -121,11 +128,17 @@ def sram_traffic(arch, layer, scheduler):
                     _rem -= col_used
                 util_this_fold = _tmp_util / (arch.array['h'] * arch.array['w'])
 
-                _del_cycles = cycles - prev_cycles
-                util += util_this_fold * _del_cycles
+                del_cycles = cycles - prev_cycles
+                util += util_this_fold * del_cycles
                 prev_cycles = cycles
 
                 ####
+                scheduler.epoch_time += del_cycles
+
+                sys.stderr.write("\033[F")  # back to previous line
+                sys.stderr.write("\033[K")  # clear line
+                print(f"Epoch time: \t{scheduler.recent_switched_epoch_time} -> {set_color(scheduler.epoch_time, key=task.color)}", file=sys.stderr)
+                
                 pbar_h.update(1)
                 ####
             #

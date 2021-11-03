@@ -1,7 +1,8 @@
 import dram_trace as dram
-#import sram_traffic_os as sram_os
+#import sram_traffic_os_ as sram_os
+#import sram_traffic_is_ as sram_is
 import sram_traffic_ws as sram_ws
-#import sram_traffic_is as sram_is
+#import scheduling.prema._sram_traffic_ws_light as sram_ws
 
 
 def gen_all_traces(arch, layer, scheduler):
@@ -11,6 +12,11 @@ def gen_all_traces(arch, layer, scheduler):
     #                arch, layer, scheduler
     #            )
     sram_cycles, util = sram_ws.sram_traffic(arch, layer, scheduler)
+    '''
+    print(f'Cycles for compute   : \t{sram_cycles} cycles')
+    print(f'Average utilization  : \t{util:.6f} %')
+    return 'None', 'None', sram_cycles, util
+    '''
 
     #print('Generating DRAM traffic')
     word_sz_bytes = 1
@@ -35,14 +41,18 @@ def gen_all_traces(arch, layer, scheduler):
         dram_write_trace_file=layer.trace_paths['dram']['ofmap']
     )
 
-    print(f'Cycles for compute  : \t{sram_cycles} cycles')
-    print(f'Average utilization : \t{util:.6f} %')
+    print(f'Cycles for compute   : \t{sram_cycles} cycles')
+    print(f'Average utilization  : \t{util:.6f} %')
     bw_numbers, detail_log = gen_bw_numbers(layer.trace_paths)  #array_h, array_w)
 
     return bw_numbers, detail_log, sram_cycles, util
 #
 
 def gen_max_bw_numbers(trace_paths=None):
+    '''
+    return 'None'
+    '''
+
     ## dram_ifmap_trace_file
     max_dram_activation_bw, max_dram_act_clk = 0, ''
     with open(trace_paths['dram']['ifmap'], 'r') as f:
@@ -218,9 +228,9 @@ def gen_bw_numbers(trace_paths=None
     #avg_util            = total_util / sram_clk * 100
 
     UNIT = 'Bytes/cycle'
-    print(f'DRAM IFMAP Read BW  : \t{dram_activation_bw:.6f} {UNIT}')
-    print(f'DRAM Filter Read BW : \t{dram_filter_bw:.6f} {UNIT}')
-    print(f'DRAM OFMAP Write BW : \t{dram_ofmap_bw:.6f} {UNIT}')
+    print(f'DRAM IFMAP Read BW   : \t{dram_activation_bw:.6f} {UNIT}')
+    print(f'DRAM Filter Read BW  : \t{dram_filter_bw:.6f} {UNIT}')
+    print(f'DRAM OFMAP Write BW  : \t{dram_ofmap_bw:.6f} {UNIT}')
     #print(f'Average utilization : \t{avg_util} %')
     #print('SRAM OFMAP Write BW, Min clk, Max clk')
     

@@ -1,4 +1,5 @@
 from scheduling.prema.prediction_layer_time import prediction_layer_time
+from scale_error import *
 
 
 class _ReadyQueue:
@@ -36,6 +37,7 @@ class _ReadyQueue:
                 estimated_cycles, estimated_util = prediction_layer_time(self.scheduler.arch, layer)
                 task.estimated_time += estimated_cycles
                 task.estimated_time_per_layer.append(estimated_cycles)
+            #print(task.estimated_time_per_layer)
     
     def pop(self) -> int:
         self.newly_arrived = False
@@ -177,22 +179,28 @@ class HPF(_ReadyQueue):
 ## PREMA: SJF, TOKEN, PREMA
 class _PREMA(_ReadyQueue):
     ## Find shortest estimated job
-    def _find_shortest_estimated_job(self, li_enumerate: list):
+    def _find_shortest_estimated_job(self, li_enumerate: list):  # bool(li_enumerate) is always True
         tasks = self.scheduler.tasks
 
         if self.layerwise_scheduling:
             next_i, next_id = li_enumerate[0]
             for i, id in li_enumerate:
                 #if tasks[id].estimated_time_per_layer[tasks[id].current_layer_idx] < tasks[next_id].estimated_time_per_layer[tasks[next_id].current_layer_idx]:
-                if self._get_remaining_layer_time(tasks[id]) < self._get_remaining_layer_time(tasks[next_id]):  # SRTF
+                if self._get_remaining_layer_time(tasks[id]) < self._get_remaining_layer_time(tasks[next_id]):  ######## SRTF
                     next_i, next_id = i, id
         else:
             next_i, next_id = li_enumerate[0]
             for i, id in li_enumerate:
                 #if tasks[id].estimated_time < tasks[next_id].estimated_time:
-                if self._get_remaining_time(tasks[id]) < self._get_remaining_time(tasks[next_id]):  # SRTF
+                if self._get_remaining_time(tasks[id]) < self._get_remaining_time(tasks[next_id]):  ######## SRTF
                     next_i, next_id = i, id
         return next_i, next_id
+
+    def _get_threshold(self, token: int):
+        for threshold in [ 12, 9, 6, 3 ]:
+            if token >= threshold:
+                return threshold
+        raise SCALE_Error("Invalid token value: must be >= 3")
 
     ## PREMA Algorithm 2: PREMA Scheduling Algorithm
     def _select_next_task(self):
@@ -203,25 +211,24 @@ class _PREMA(_ReadyQueue):
         ####
         tasks = self.scheduler.tasks
 
+        ## Refresh token in all tasks in ready queue
+        for id in self.li:
+            task = tasks[id]
+            if self.layerwise_scheduling:
+                slowdown = task.waited_time_per_layer[task.current_layer_idx] / task.estimated_time_per_layer[task.current_layer_idx]
+            else:
+                slowdown = task.waited_time / task.estimated_time
+            #task.token += task.priority * slowdown  ######## 너무 기하급수적으로 증가하는 문제점이 있어 대체
+            task.token = task.priority * (1 + slowdown)
+
         if self.type == 'SJF':
             next_i, next_id = self._find_shortest_estimated_job(list(enumerate(self.li)))
         else:
-            ## Refresh token in all tasks in ready queue
-            for id in self.li:
-                task = tasks[id]
-                if self.layerwise_scheduling:
-                    slowdown = task.waited_time_per_layer[task.current_layer_idx] / task.estimated_time_per_layer[task.current_layer_idx]
-                else:
-                    slowdown = task.waited_time / task.estimated_time
-                task.token += task.priority * slowdown
-
-            candidates = { 9: [], 6: [], 3: [] }
+            candidates = { 12: [], 9: [], 6: [], 3: [] }  ######## 12 added (but cannot set as priority)
             for i, id in enumerate(self.li):
-                for threshold in [9, 6, 3]:
-                    if tasks[id].token >= threshold:
-                        candidates[threshold].append((i, id))
+                candidates[self._get_threshold(tasks[id].token)].append((i, id))
             
-            for threshold in [9, 6, 3]:
+            for threshold in [ 12, 9, 6, 3 ]:
                 if bool(candidates[threshold]):
                     if self.type == 'TOKEN':
                         next_i, next_id = candidates[threshold][0]
@@ -248,8 +255,18 @@ class _PREMA(_ReadyQueue):
             ret = True
         else:
             ####
-            if ret:
-                ret = self.is_checkpoint(tasks[current_id], tasks[self.next_id])
+            if self.type == 'SJF':
+                if self.layerwise_scheduling:
+                    ret = self._get_remaining_layer_time(tasks[self.next_id]) <= self._get_remaining_layer_time(tasks[current_id])  ######## SRTF
+                else:
+                    ret = self._get_remaining_time(tasks[self.next_id]) <= self._get_remaining_time(tasks[current_id])  ######## SRTF
+            else:
+                ########
+                if self._get_threshold(tasks[self.next_id].token) < self._get_threshold(tasks[current_id].token):
+                    ret = False
+                ########
+                else:
+                    ret = self.is_checkpoint(tasks[current_id], tasks[self.next_id])
             ####
         self.newly_arrived = False
         if self.scheduler.epoch_time - self.recent_wakeup_time >= self.time_quota:

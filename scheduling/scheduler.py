@@ -18,7 +18,8 @@ class Scheduler:
                 preemptive: bool=True, layerwise_scheduling: bool=False,
                 time_quota: int=None, dynamic: bool=True,
             ):
-        self.epoch_time = 0     # unit: cycle
+        self.epoch_time = 0  # unit: cycle
+        self.recent_switched_epoch_time, self.recent_refreshed_epoch_time = self.epoch_time, self.epoch_time
         self.current_task_id = None
 
         self.algorithm_name = algorithm_name
@@ -120,19 +121,16 @@ class Scheduler:
         running_task = self.tasks[self.current_task_id]
 
         ## Get diff cycles 
-        diff_cycles = running_task.layers[running_task.last_executed_layer_idx].load_var('cycles') - running_task.executed_time_per_layer[running_task.last_executed_layer_idx]
-
-        ## Refresh epoch time
-        self.epoch_time += diff_cycles
+        diff_cycles = self.epoch_time - self.recent_refreshed_epoch_time
 
         ## Refresh time for current task and all ready tasks
         running_task.executed_time += diff_cycles
         running_task.executed_time_per_layer[running_task.last_executed_layer_idx] += diff_cycles
         _li = running_task.executed_timeline[running_task.last_executed_layer_idx]
-        if bool(_li) and _li[-1][1] == self.epoch_time - diff_cycles:
+        if bool(_li) and _li[-1][1] == self.recent_refreshed_epoch_time:
             _li[-1][1] = self.epoch_time
         else:
-            _li.append([ self.epoch_time - diff_cycles, self.epoch_time ])
+            _li.append([ self.recent_refreshed_epoch_time, self.epoch_time ])
 
         for task_id in self.ready_q.get_list():
             task = self.tasks[task_id]
@@ -140,16 +138,18 @@ class Scheduler:
             task.waited_time += diff_cycles
             task.waited_time_per_layer[task.current_layer_idx] += diff_cycles
             _li = task.waited_timeline[task.current_layer_idx]
-            if bool(_li) and _li[-1][1] == self.epoch_time - diff_cycles:
+            if bool(_li) and _li[-1][1] == self.recent_refreshed_epoch_time:
                 _li[-1][1] = self.epoch_time
             else:
-                _li.append([ self.epoch_time - diff_cycles, self.epoch_time ])
+                _li.append([ self.recent_refreshed_epoch_time, self.epoch_time ])
         
         ## for debug
         #print(f"epoch time: {self.epoch_time}")
         #for task_id, task in self.tasks.items():
-        #    print(f"[{task_id}] executed time: {task.executed_time} + {task.waited_time} = {task.executed_time + task.waited_time}")
+        #    print(f"[{task_id}] executed/waited time: {task.executed_time}/{task.waited_time} => {task.executed_time + task.waited_time}")
         #print(f"[{self.current_task_id}] executed timeline (tail): {running_task.executed_timeline[-3:]}")
+
+        self.recent_refreshed_epoch_time = self.epoch_time
     #
 
     def refresh(self, preempt: bool=True, a_layer_end: bool=False):
@@ -176,7 +176,11 @@ class Scheduler:
             ## END
             if current_task.current_layer_idx == len(current_task.layers):
                 self.refresh(preempt=False)
-                print(f"Executed timeline: {current_task.executed_timeline}")
+                print("----------------------------------------------------")
+                print(f"Executed time        : \t{current_task.executed_time} cycles")
+                print(f"Waited time          : \t{current_task.waited_time} cycles")
+                print(f"Executed timeline    : \t{current_task.executed_timeline}")
+                #print(f"Waited timeline     : \t{current_task.waited_timeline}")
 
                 current_task.state = 'END'
                 print(set_style(" TASK ENDED ", key='INVERSE'))

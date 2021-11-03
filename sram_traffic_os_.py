@@ -62,8 +62,10 @@ def sram_traffic(arch, layer, scheduler):
                         )
 
     cycles = max(read_cycles, write_cycles)
-    str_cycles = str(cycles)
-    return(str_cycles, util)
+    ####
+    scheduler.epoch_time += cycles
+    ####
+    return (str(cycles), util)
 # End of sram_traffic()
 
         

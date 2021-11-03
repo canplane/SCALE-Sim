@@ -30,8 +30,8 @@ class Scale:
             # TPU: 700 MHz, PREMA default time-quota: 0.25 ms
             # -> (700 * 10 ** 6) * 0.25 = 175000000 cycles
             q = 100000
-        preemptive = True
-        layerwise_scheduling = True
+        preemptive = True  # Can be set except in FCFS, RRB
+        layerwise_scheduling = False
         dynamic = True
 
         self.arch = Architecture(cfg_path=a)
@@ -48,18 +48,18 @@ class Scale:
         print("====================================================")
         print("******************* SCALE SIM **********************")
         print("====================================================")
-        print(f"Architecture: \t{self.arch.name}")
+        print(f"Architecture         : \t{self.arch.name}")
         print("----------------------------------------------------")
-        print(f"Array size: \t{self.arch.array['h']}x{self.arch.array['w']}")
-        print(f"SRAM IFMAP: \t{int(self.arch.sram_sz['ifmap'] / 1024)}")
-        print(f"SRAM Filter: \t{int(self.arch.sram_sz['filt'] / 1024)}")
-        print(f"SRAM OFMAP: \t{int(self.arch.sram_sz['ofmap'] / 1024)}")
-        print(f"Dataflow: \t{_df_string(self.arch.dataflow)}")
+        print(f"Array size           : \t{self.arch.array['h']}x{self.arch.array['w']}")
+        print(f"SRAM IFMAP           : \t{int(self.arch.sram_sz['ifmap'] / 1024)}")
+        print(f"SRAM Filter          : \t{int(self.arch.sram_sz['filt'] / 1024)}")
+        print(f"SRAM OFMAP           : \t{int(self.arch.sram_sz['ofmap'] / 1024)}")
+        print(f"Dataflow             : \t{_df_string(self.arch.dataflow)}")
         print("====================================================")
-        print(f"Scheduler: \t{set_style(set_style(f' {self.scheduler.algorithm_name} ', key='BOLD'), key='INVERSE')}")
-        print(f"Preemptive: \t\t{self.scheduler.ready_q.preemptive}")
-        print(f"Layerwise scheduling: \t{self.scheduler.ready_q.layerwise_scheduling}")
-        print(f"Dynamic: \t\t{self.scheduler.ready_q.dynamic}")
+        print(f"Scheduler            : \t{set_style(set_style(f' {self.scheduler.algorithm_name} ', key='BOLD'), key='INVERSE')}")
+        print(f"Preemptive           : \t{self.scheduler.ready_q.preemptive}")
+        print(f"Layerwise scheduling : \t{self.scheduler.ready_q.layerwise_scheduling}")
+        print(f"Dynamic              : \t{self.scheduler.ready_q.dynamic}")
         print("====================================================")
 
         self.scheduler.start()

@@ -25,8 +25,6 @@ def prediction_layer_time(arch, layer):
     num_v_fold = math.ceil(required_cols / max_cols_per_v_fold)
 
     util = 0
-    compute_cycles = 0
-    
     cycles = 0
     prev_cycles = cycles
 
@@ -61,9 +59,8 @@ def prediction_layer_time(arch, layer):
                     
                     util_this_fold = (rows_this_fold * cols_this_fold) / (arch.array['h'] * arch.array['w'])
 
-                    _del_cycles = cycles - prev_cycles
-                    util += util_this_fold * _del_cycles
-                    compute_cycles += _del_cycles
+                    del_cycles = cycles - prev_cycles
+                    util += util_this_fold * del_cycles
                     prev_cycles = cycles
 
                     ####
@@ -100,9 +97,8 @@ def prediction_layer_time(arch, layer):
                     _rem -= col_used
                 util_this_fold = _tmp_util / (arch.array['h'] * arch.array['w'])
 
-                _del_cycles = cycles - prev_cycles
-                util += util_this_fold * _del_cycles
-                compute_cycles += _del_cycles
+                del_cycles = cycles - prev_cycles
+                util += util_this_fold * del_cycles
                 prev_cycles = cycles
             #
             rem_c -= cols_this_fold
@@ -115,7 +111,7 @@ def prediction_layer_time(arch, layer):
         pass
     
     final_cycles = cycles
-    final_util = (util / compute_cycles) * 100
+    final_util = (util / cycles) * 100
     return final_cycles, final_util
 
 
