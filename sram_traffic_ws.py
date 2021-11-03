@@ -106,7 +106,7 @@ def sram_traffic(arch, layer, scheduler):
                             stride = layer.stride, ifmap_base = arch.base_addr['ifmap'],
                             sram_read_trace_file = layer.trace_paths['sram']['read']
                         )
-                    #print("ifmap", cycles_ifmap, "--")
+                    #print("ifmap:", cycles_ifmap, "--")
                     cycles_ofmap = gen_trace_ofmap(
                             cycles = cycles_filt, 
                             num_rows = arch.array['h'],
@@ -119,7 +119,7 @@ def sram_traffic(arch, layer, scheduler):
                             num_filt = layer.num_filt,
                             sram_write_trace_file = layer.trace_paths['sram']['write']
                         )
-                    #print("ofmap", cycles_ofmap, "--")
+                    #print("ofmap:", cycles_ofmap, "--")
                     cycles = max(cycles_ifmap, cycles_ofmap)
 
                     rem_h -= rows_this_fold
@@ -412,10 +412,13 @@ def gen_trace_ifmap_partial(
     r2c = filt_h * filt_w * num_ch
     rc = filt_w * num_ch
     hc = ifmap_w * num_ch
-    E_w = math.floor((ifmap_w - filt_w + stride) / stride)
-    E_h = math.floor((ifmap_h - filt_h + stride) / stride)
+    #####????? 버그 : floor 없음 -> 고치면 원래 SCALE-Sim과 결과 불일치 (cycles_ifmap -> cycles 불일치)
+    E_w = (ifmap_w - filt_w + stride) / stride
+    E_h = (ifmap_h - filt_h + stride) / stride
+    num_ofmap_px = int(E_h * E_w)
+    #####E_w = math.floor((ifmap_w - filt_w + stride) / stride)
+    #####E_h = math.floor((ifmap_h - filt_h + stride) / stride)
 
-    num_ofmap_px = E_h * E_w
     index = r2c - remaining
     base_addr = 0 
             

@@ -6,7 +6,7 @@ from misc import set_style, set_color
 def run_slot(arch, task, scheduler):
     print("")
     print(f"Network: \t{set_style(set_color(task.name, key=task.color), key='BOLD')}")
-    print(f"Priority/Token: {task.priority}/{task.token}")
+    print(f"Token: \t\t{task.token:.6f} (Priority: {task.priority})")
     print("----------------------------------------------------")
     
     while task.current_layer_idx < len(task.layers):

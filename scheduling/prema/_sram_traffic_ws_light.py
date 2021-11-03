@@ -11,6 +11,11 @@ def sram_traffic(arch, layer, scheduler):
     E_h = math.floor((layer.ifmap['h'] - layer.filt['h']) / layer.stride) + 1
     E_w = math.floor((layer.ifmap['w'] - layer.filt['w']) / layer.stride) + 1
     e2  = E_h * E_w
+    #### gen_trace_ifmap_partial에 floor 안 하고 쓰는 버그 있음
+    E_h_BUG = (layer.ifmap['h'] - layer.filt['h'] + layer.stride) / layer.stride
+    E_w_BUG = (layer.ifmap['w'] - layer.filt['w'] + layer.stride) / layer.stride
+    e2_BUG = int(E_h_BUG * E_w_BUG)
+    ####
     
     r2c = layer.filt['h'] * layer.filt['w'] * layer.ch  # px_per_filt
 
@@ -53,7 +58,7 @@ def sram_traffic(arch, layer, scheduler):
                         )
                     #print("filt:", cycles_filt, "--")
                     cycles_ifmap = gen_trace_ifmap_partial(cycles=cycles_filt, 
-                            e2=e2
+                            e2_BUG=e2_BUG
                         )
                     #print("ifmap", cycles_ifmap, "--")
                     cycles_ofmap = gen_trace_ofmap(
@@ -161,8 +166,8 @@ def gen_trace_ifmap(cycles=None, e2=None):
 def gen_trace_filt_partial(cycles=None, remaining=None):
     cycles += remaining
     return cycles
-def gen_trace_ifmap_partial(cycles=None, e2=None):
-    cycles += e2
+def gen_trace_ifmap_partial(cycles=None, e2_BUG=None):
+    cycles += e2_BUG
     return cycles
 
 def gen_trace_ofmap(
