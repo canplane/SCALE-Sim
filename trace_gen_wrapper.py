@@ -1,15 +1,16 @@
 import dram_trace as dram
-import sram_traffic_os as sram_os
+#import sram_traffic_os as sram_os
 import sram_traffic_ws as sram_ws
-import sram_traffic_is as sram_is
+#import sram_traffic_is as sram_is
 
 
 def gen_all_traces(arch, layer, scheduler):
     print('Generating traces and bw numbers')
-    sram_cycles, util = \
-            { 'os': sram_os, 'ws': sram_ws, 'is': sram_is }.get(arch.dataflow, 'os').sram_traffic(
-                    arch, layer, scheduler
-                )
+    #sram_cycles, util = \
+    #        { 'os': sram_os, 'ws': sram_ws, 'is': sram_is }.get(arch.dataflow, 'os').sram_traffic(
+    #                arch, layer, scheduler
+    #            )
+    sram_cycles, util = sram_ws.sram_traffic(arch, layer, scheduler)
 
     #print('Generating DRAM traffic')
     word_sz_bytes = 1

@@ -23,9 +23,9 @@ class Scale:
         if a == '':
             a = './architectures/eyeriss.cfg'
         if t == '':
-            t = './task_list.csv'
+            t = './task_list_single.csv'
         if s == '':
-            s = 'PREMA'
+            s = 'FCFS'
         if q <= 0:
             # TPU: 700 MHz, PREMA default time-quota: 0.25 ms
             # -> (700 * 10 ** 6) * 0.25 = 175000000 cycles
