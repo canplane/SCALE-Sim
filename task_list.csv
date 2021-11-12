@@ -1,0 +1,7 @@
+Network, Network path, Priority, Arrival time,
+
+"Net_0", "./networks/conv_nets/_foonet_2.csv", 3, 0,
+"Net_1", "./networks/conv_nets/_foonet_1.csv", 3, 0,
+"Net_2", "./networks/conv_nets/alexnet_part.csv", 6, 4000,
+"Net_3", "./networks/conv_nets/_foonet_3.csv", 9, 100000,
+"Net_4", "./networks/conv_nets/_foonet_2.csv", 6, 200000,

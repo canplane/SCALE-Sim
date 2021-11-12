@@ -1,0 +1,3 @@
+Network, Network path, Priority, Arrival time,
+
+"AlexNet (Part) 4", "./networks/conv_nets/alexnet_part.csv", 6, 0,
