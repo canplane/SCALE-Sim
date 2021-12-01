@@ -9,15 +9,6 @@ from scheduling.scheduler import Scheduler, Preemption
 from misc import set_style, set_color
 
 
-def _df_string(dataflow):
-    ret = 'Output Stationary'  # os
-    if dataflow == 'ws':
-        ret = 'Weight Stationary'
-    elif dataflow == 'is':
-        ret = 'Input Stationary'
-    return ret
-
-
 class Scale:
     def __init__(self, a='', t='', s='', q=0):
         if a == '':
@@ -45,6 +36,14 @@ class Scale:
     #
 
     def run(self):
+        def _df_string(dataflow):
+            ret = 'Output Stationary'  # os
+            if dataflow == 'ws':
+                ret = 'Weight Stationary'
+            elif dataflow == 'is':
+                ret = 'Input Stationary'
+            return ret
+
         print("====================================================")
         print("******************* SCALE SIM **********************")
         print("====================================================")
